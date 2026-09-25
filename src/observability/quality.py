@@ -100,6 +100,7 @@ def run_data_quality_checks(
     `expected_papers` is the number of papers in the raw snapshot; when given, the suite also
     checks that the dataset did not lose papers on the way (completeness against lineage).
     """
+    missing_columns = [column for column in GX_COLUMNS if column not in df.columns]
     frame = df.reindex(columns=GX_COLUMNS).copy()
     for column in ["paper_id", "title", "summary", "published", "text_for_embedding"]:
         frame[column] = frame[column].astype(object)
@@ -121,6 +122,7 @@ def run_data_quality_checks(
         "success": bool(validation.get("success")),
         "row_count": int(len(df)),
         "expected_papers": expected_papers,
+        "missing_columns": missing_columns,
         "evaluated_expectations": len(results),
         "successful_expectations": len(results) - len(failed),
         "failed_expectations": len(failed),
@@ -136,21 +138,23 @@ def run_data_quality_checks(
 def build_freshness_report(df: pd.DataFrame, settings: Settings, report_path) -> dict[str, Any]:
     """Summarize dataset freshness against the SLA (<= 25% of rows older than the threshold)."""
     total_rows = int(len(df))
-    published = pd.to_datetime(df["published"], errors="coerce") if total_rows else pd.Series(dtype="datetime64[ns]")
-    stale_rows = int((df["age_days"] > settings.freshness_threshold_days).sum()) if total_rows else 0
+    published = pd.to_datetime(df.get("published"), errors="coerce") if total_rows else pd.Series(dtype="datetime64[ns]")
+    age_days = pd.to_numeric(df.get("age_days"), errors="coerce") if total_rows else pd.Series(dtype="float64")
+    stale_rows = int((age_days > settings.freshness_threshold_days).sum()) if total_rows else 0
     stale_ratio = stale_rows / total_rows if total_rows else 1.0
     payload = {
         "checked_at": now_utc().isoformat(),
         "latest_published": published.max().strftime("%Y-%m-%d") if total_rows else None,
         "oldest_published": published.min().strftime("%Y-%m-%d") if total_rows else None,
-        "min_age_days": int(df["age_days"].min()) if total_rows else None,
-        "max_age_days": int(df["age_days"].max()) if total_rows else None,
+        "min_age_days": int(age_days.min()) if age_days.notna().any() else None,
+        "max_age_days": int(age_days.max()) if age_days.notna().any() else None,
+        "missing_age_days": int(age_days.isna().sum()) if total_rows else 0,
         "threshold_days": settings.freshness_threshold_days,
         "max_stale_ratio": MAX_STALE_RATIO,
         "stale_rows": stale_rows,
         "total_rows": total_rows,
         "stale_ratio": round(stale_ratio, 4),
-        "is_fresh": bool(total_rows > 0 and stale_ratio <= MAX_STALE_RATIO),
+        "is_fresh": bool(total_rows > 0 and age_days.notna().all() and stale_ratio <= MAX_STALE_RATIO),
     }
     write_json(Path(report_path), payload)
     return payload
