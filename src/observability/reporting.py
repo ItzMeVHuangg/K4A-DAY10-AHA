@@ -79,6 +79,7 @@ def _freshness_lines(freshness: dict[str, Any]) -> list[str]:
         f"| Age range (days) | {freshness['min_age_days']} – {freshness['max_age_days']} |",
         f"| Stale rows (> {freshness['threshold_days']} days) | {freshness['stale_rows']} / {freshness['total_rows']} |",
         f"| Stale ratio (SLA ≤ {freshness['max_stale_ratio']:.0%}) | {freshness['stale_ratio']:.1%} |",
+        f"| Missing/invalid age values | {freshness.get('missing_age_days', 0)} |",
         f"| is_fresh | {_fmt(freshness['is_fresh'])} |",
     ]
 
