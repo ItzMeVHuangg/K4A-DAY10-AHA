@@ -1,0 +1,96 @@
+{
+  "created_at": "2026-09-25T09:15:16+00:00",
+  "seed": 42,
+  "input_rows": 24,
+  "output_rows": 22,
+  "scenario_count": 6,
+  "scenarios": [
+    {
+      "name": "drop_latest_records",
+      "description": "Newest 20% of papers missing (failed incremental ingestion)",
+      "params": {
+        "ratio": 0.2
+      },
+      "affected_rows": 5,
+      "affected_paper_ids": [
+        "10.1145/3637528.3671812",
+        "10.1145/3637528.3671808",
+        "10.1145/3637528.3671804",
+        "10.1145/3637528.3671807",
+        "10.1145/3637528.3671802"
+      ]
+    },
+    {
+      "name": "blank_summary",
+      "description": "Abstract emptied (broken extraction)",
+      "params": {
+        "rows": 3
+      },
+      "affected_rows": 3,
+      "affected_paper_ids": [
+        "10.1145/3637528.3671821",
+        "10.1145/3637528.3671818",
+        "10.1145/3637528.3671814"
+      ]
+    },
+    {
+      "name": "inject_noise",
+      "description": "Garbage symbol sequences injected into abstracts (encoding / scraping noise)",
+      "params": {
+        "rows": 3,
+        "tokens_per_row": 4
+      },
+      "affected_rows": 3,
+      "affected_paper_ids": [
+        "10.1145/3637528.3671824",
+        "10.1145/3637528.3671801",
+        "10.1145/3637528.3671806"
+      ]
+    },
+    {
+      "name": "truncate_title",
+      "description": "Titles truncated to 6 characters (field length bug)",
+      "params": {
+        "rows": 3,
+        "max_chars": 6
+      },
+      "affected_rows": 3,
+      "affected_paper_ids": [
+        "10.1145/3637528.3671819",
+        "10.1145/3637528.3671816",
+        "10.1145/3637528.3671813"
+      ]
+    },
+    {
+      "name": "stale_date",
+      "description": "Publication date shifted 365 days into the past (stale data)",
+      "params": {
+        "ratio": 0.35,
+        "shift_days": 365
+      },
+      "affected_rows": 7,
+      "affected_paper_ids": [
+        "10.1145/3637528.3671824",
+        "10.1145/3637528.3671821",
+        "10.1145/3637528.3671818",
+        "10.1145/3637528.3671815",
+        "10.1145/3637528.3671814",
+        "10.1145/3637528.3671813",
+        "10.1145/3637528.3671806"
+      ]
+    },
+    {
+      "name": "duplicate_rows",
+      "description": "Rows loaded twice (non-idempotent load)",
+      "params": {
+        "rows": 3
+      },
+      "affected_rows": 3,
+      "affected_paper_ids": [
+        "10.1145/3637528.3671824",
+        "10.1145/3637528.3671818",
+        "10.1145/3637528.3671806"
+      ]
+    }
+  ]
+}

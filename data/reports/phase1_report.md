@@ -1,0 +1,64 @@
+# Phase 1 Report — Baseline Data Pipeline
+
+_Generated automatically by `script/run_phase1.py` at 2026-09-25T09:12:25+00:00._
+
+## 1. Source & Lineage
+
+| Field | Value |
+| --- | --- |
+| Source Api | Crossref REST API |
+| Mode | offline snapshot (data/raw/crossref_response.json) |
+| Query | agentic retrieval augmented generation large language model |
+| Filter | from-pub-date:2026-03-29,has-abstract:true |
+| Raw Records | 24 |
+| Clean Rows | 24 |
+| Embedding Model | sentence-transformers/all-MiniLM-L6-v2 |
+| Collection | papers-baseline |
+| Top K | 4 |
+| Llm Provider | mock / gemini-3.5-flash |
+| Run Date | 2026-09-25T09:12:19+00:00 |
+
+## 2. RAG Evaluation (baseline)
+
+| Metric | Value |
+| --- | ---: |
+| Samples | 10 |
+| Retrieval Hit Rate (`retrieval_hit_rate`) | 1.000 |
+| Mean Token F1 (`mean_token_f1`) | 1.000 |
+| LLM Judge Accuracy (`judge_accuracy`) | 1.000 |
+| Mean Judge Score (1-5) (`mean_judge_score`) | 5.000 |
+| Judge answers scored by heuristic fallback | 10 / 10 |
+
+Ragas: Skipped — Set RUN_RAGAS=1 to enable the slower Ragas pass.
+
+## 3. Data Quality Gate — PASS (10/10)
+
+Engine: great_expectations 1.18.0, rows validated: 24.
+
+| Expectation | Column | Params | Result | Observed / Unexpected |
+| --- | --- | --- | :---: | --- |
+| `expect_table_row_count_to_be_between` | (table) | min_value=5, max_value=5000 | ✅ | 24 |
+| `expect_column_values_to_not_be_null` | paper_id | - | ✅ | 0 unexpected / 24 rows |
+| `expect_column_values_to_be_unique` | paper_id | - | ✅ | 0 unexpected / 24 rows |
+| `expect_column_values_to_not_be_null` | title | - | ✅ | 0 unexpected / 24 rows |
+| `expect_column_value_lengths_to_be_between` | title | min_value=8 | ✅ | 0 unexpected / 24 rows |
+| `expect_column_values_to_not_be_null` | summary | - | ✅ | 0 unexpected / 24 rows |
+| `expect_column_value_lengths_to_be_between` | summary | min_value=30 | ✅ | 0 unexpected / 24 rows |
+| `expect_column_values_to_not_match_regex` | summary | regex=[#@$%^&*~]{3,} | ✅ | 0 unexpected / 24 rows |
+| `expect_column_values_to_not_be_null` | text_for_embedding | - | ✅ | 0 unexpected / 24 rows |
+| `expect_column_values_to_be_between` | age_days | mostly=0.75, min_value=0.0, max_value=180.0 | ✅ | 1 unexpected / 24 rows |
+
+## 4. Freshness SLA — FRESH (1/24 stale)
+
+| Field | Value |
+| --- | --- |
+| Latest published | 2026-07-22 |
+| Oldest published | 2026-03-28 |
+| Age range (days) | 65 – 181 |
+| Stale rows (> 180 days) | 1 / 24 |
+| Stale ratio (SLA ≤ 25%) | 4.2% |
+| is_fresh | ✅ True |
+
+## 5. Conclusion
+
+The clean dataset passes every quality expectation and the freshness SLA, so it was indexed into the `papers-baseline` collection. These metrics (hit rate 1.000, token F1 1.000) are the reference point for the corruption experiment.
