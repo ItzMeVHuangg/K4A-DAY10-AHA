@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
+import re
+import shutil
+import sqlite3
 from typing import Any
 
 import chromadb
@@ -10,6 +14,8 @@ import pandas as pd
 from core.config import Settings
 from core.utils import read_json, safe_slug, write_json
 from retrieval.embeddings import MiniLMEmbeddings
+
+UUID_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
 @dataclass(frozen=True)
@@ -80,6 +86,25 @@ class LocalEmbeddingIndex:
             return name_map[resolved_path]
         return safe_slug(embeddings_output_path.stem)
 
+    @staticmethod
+    def _prune_orphan_segments(persist_path: Path) -> None:
+        """Remove segment folders of deleted collections.
+
+        Chroma leaves them behind when `delete_collection` cannot unlink files (e.g. on Windows),
+        so every rebuild would otherwise add dead folders to the repo.
+        """
+        database = persist_path / "chroma.sqlite3"
+        if not database.exists():
+            return
+        try:
+            with closing(sqlite3.connect(database)) as connection:
+                live = {row[0] for row in connection.execute("SELECT id FROM segments")}
+        except sqlite3.Error:
+            return
+        for folder in persist_path.iterdir():
+            if folder.is_dir() and UUID_PATTERN.fullmatch(folder.name) and folder.name not in live:
+                shutil.rmtree(folder, ignore_errors=True)
+
     @classmethod
     def build(
         cls,
@@ -91,6 +116,7 @@ class LocalEmbeddingIndex:
         documents = cls._build_documents(df)
         persist_path = settings.paths.chroma_dir
         persist_path.mkdir(parents=True, exist_ok=True)
+        cls._prune_orphan_segments(persist_path)
 
         embedding_model = MiniLMEmbeddings(settings.embedding_model)
         client = chromadb.PersistentClient(path=str(persist_path))
@@ -109,6 +135,8 @@ class LocalEmbeddingIndex:
             documents=[document["content"] for document in documents],
             metadatas=[document["metadata"] for document in documents],
         )
+
+        cls._prune_orphan_segments(persist_path)  # also drop the folder of the collection replaced above
 
         manifest_path = embeddings_output_path or settings.paths.embeddings_json
         write_json(

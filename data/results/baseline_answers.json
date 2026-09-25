@@ -8,6 +8,7 @@
       "10.1145/3637528.3671812"
     ],
     "answer": "Static benchmarks fail to capture domain drift in enterprise knowledge bases.",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671812",
       "10.1145/3637528.3671824",
@@ -25,7 +26,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -37,6 +38,7 @@
       "10.1145/3637528.3671808"
     ],
     "answer": "Phong Vu, Ngan Hoang",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671808",
       "10.1145/3637528.3671820",
@@ -54,7 +56,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -66,6 +68,7 @@
       "10.1145/3637528.3671804"
     ],
     "answer": "2026-07-05",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671804",
       "10.1145/3637528.3671816",
@@ -83,7 +86,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -95,6 +98,7 @@
       "10.1145/3637528.3671807"
     ],
     "answer": "Robustness, Information Retrieval",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671807",
       "10.1145/3637528.3671819",
@@ -112,7 +116,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -124,6 +128,7 @@
       "10.1145/3637528.3671802"
     ],
     "answer": "Silent data corruption in RAG pipelines degrades LLM answer faithfulness without throwing runtime errors.",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671802",
       "10.1145/3637528.3671814",
@@ -141,7 +146,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -153,6 +158,7 @@
       "10.1145/3637528.3671824"
     ],
     "answer": "Quang Le, Yen Vu",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671824",
       "10.1145/3637528.3671812",
@@ -170,7 +176,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -182,6 +188,7 @@
       "10.1145/3637528.3671821"
     ],
     "answer": "An extended empirical study on ierarchical and semantic boundary chunking preserves code block contexts and markdown headings.",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671821",
       "10.1145/3637528.3671809",
@@ -199,7 +206,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -211,6 +218,7 @@
       "10.1145/3637528.3671818"
     ],
     "answer": "Huy Dinh, Trang Vo",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671818",
       "10.1145/3637528.3671806",
@@ -228,7 +236,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -240,6 +248,7 @@
       "10.1145/3637528.3671814"
     ],
     "answer": "2026-06-02",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671814",
       "10.1145/3637528.3671802",
@@ -257,7 +266,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   },
   {
@@ -269,6 +278,7 @@
       "10.1145/3637528.3671806"
     ],
     "answer": "Databases, Information Systems",
+    "answer_mode": "extractive",
     "retrieved_doc_ids": [
       "10.1145/3637528.3671806",
       "10.1145/3637528.3671818",
@@ -286,7 +296,7 @@
     "judge": {
       "score": 5,
       "correct": true,
-      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable."
+      "reasoning": "Fallback heuristic judge used because the LLM evaluator was unavailable (NotImplementedError: with_structured_output is not implemented for this model.)."
     }
   }
 ]

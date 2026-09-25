@@ -1,11 +1,12 @@
 {
   "report_name": "baseline",
   "engine": "great_expectations 1.18.0",
-  "validated_at": "2026-09-25T09:12:19.160933+00:00",
+  "validated_at": "2026-09-25T09:36:32.894588+00:00",
   "success": true,
   "row_count": 24,
-  "evaluated_expectations": 10,
-  "successful_expectations": 10,
+  "expected_papers": 24,
+  "evaluated_expectations": 11,
+  "successful_expectations": 11,
   "failed_expectations": 0,
   "failed_checks": [],
   "results": [
@@ -15,6 +16,16 @@
       "kwargs": {
         "min_value": 5,
         "max_value": 5000
+      },
+      "success": true,
+      "observed_value": 24
+    },
+    {
+      "expectation": "expect_column_unique_value_count_to_be_between",
+      "column": "paper_id",
+      "kwargs": {
+        "column": "paper_id",
+        "min_value": 22
       },
       "success": true,
       "observed_value": 24

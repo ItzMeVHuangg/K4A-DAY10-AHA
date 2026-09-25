@@ -6,3 +6,8 @@ src/*.egg-info/
 lab/
 **/__pycache__/
 doc_verification_report.md
+*.zip
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/

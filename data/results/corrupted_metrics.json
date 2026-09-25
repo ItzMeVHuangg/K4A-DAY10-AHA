@@ -5,6 +5,9 @@
   "judge_accuracy": 0.6,
   "mean_judge_score": 3.2,
   "judge_fallback_count": 10,
+  "judge_error": "NotImplementedError: with_structured_output is not implemented for this model.",
+  "qa_mode": "extractive",
+  "llm_answer_count": 0,
   "ragas": {
     "skipped": "Set RUN_RAGAS=1 to enable the slower Ragas pass."
   }

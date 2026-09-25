@@ -10,9 +10,9 @@
 
 | STT | Họ và tên | MSSV | Email | Vai trò & Phân công công việc | Báo cáo cá nhân |
 |---:|---|---|---|---|---|
-| 1 | Vũ Việt Hoàng | `2A202602398` | `viethoang170509@gmail.com` | Trưởng nhóm — Corruption & Pipeline Integration (`ingestion/corruption.py`, `pipelines/phase1.py`, `pipelines/corruption_flow.py`, `core/config.py`, `retrieval/llm.py`) | `report/MSSV_VuVietHoang.md` |
-| 2 | Nguyễn Vũ Anh | `2A202602502` | `vuanhcp123@gmail.com` | Data Foundation & Retrieval (`ingestion/crossref.py`, `ingestion/cleaning.py`, `evaluation/testset.py`, `retrieval/index.py`) | `report/MSSV_NguyenVuAnh.md` |
-| 3 | Trương Việt Anh | `2A202602444]` | `truongvietanh277@gmail.com` | Observability & Evaluation (`observability/quality.py`, `observability/reporting.py`, `evaluation/metrics.py`) | `report/MSSV_TruongVietAnh.md` |
+| 1 | Vũ Việt Hoàng | `2A202602398` | `viethoang170509@gmail.com` | Trưởng nhóm — Corruption & Pipeline Integration (`ingestion/corruption.py`, `pipelines/phase1.py`, `pipelines/corruption_flow.py`, `core/config.py`, `retrieval/llm.py`) | `report/2A202602398_VuVietHoang.md` |
+| 2 | Nguyễn Vũ Anh | `2A202602502` | `vuanhcp123@gmail.com` | Data Foundation & Retrieval (`ingestion/crossref.py`, `ingestion/cleaning.py`, `evaluation/testset.py`, `retrieval/index.py`) | `report/2A202602502_NguyenVuAnh.md` |
+| 3 | Trương Việt Anh | `2A202602444` | `truongvietanh277@gmail.com` | Observability & Evaluation (`observability/quality.py`, `observability/reporting.py`, `evaluation/metrics.py`) | `report/2A202602444_TruongVietAnh.md` |
 
 ### Phân công theo Checkpoint
 
@@ -30,7 +30,7 @@
 
 ## # Cá nhân
 
-### ## VuVietHoang-MSSV
+### ## VuVietHoang-2A202602398
 - **Vai trò:** Trưởng nhóm — Corruption & Pipeline Integration.
 - **Công việc chi tiết đã hoàn thành:**
   - Viết `src/pipelines/phase1.py`: ingest → clean → Quality Gate (chặn index nếu FAIL) → Chroma `papers-baseline` → test set cố định → evaluate → report → demo agent (bỏ qua an toàn khi provider không hỗ trợ tool-calling).
@@ -40,17 +40,17 @@
 - **Điều học được / Đóng góp chính:**
   - Idempotent repair = tái tạo từ nguồn raw bất biến + hàm clean deterministic, không “vá” dữ liệu hỏng; chứng minh bằng content hash (repaired ≡ baseline).
 
-### ## NguyenVuAnh-MSSV
+### ## NguyenVuAnh-2A202602502
 - **Vai trò:** Data Foundation & Retrieval.
 - **Công việc chi tiết đã hoàn thành:**
   - Viết `src/ingestion/crossref.py`: parse payload Crossref (bóc tag JATS `<jats:p>`, ghép tên tác giả, chuẩn hóa ngày từ `date-parts`), gọi API có retry/backoff cho 429/5xx + `Retry-After`, fallback snapshot offline; chỉ ghi đè raw response khi gọi live thành công. Output khớp 100% `data/raw/crossref_records.json` (24 bản ghi).
   - Viết `src/ingestion/cleaning.py`: chuẩn hóa text/list, parse ngày, tính `age_days`, dedupe theo `paper_id`, sinh `text_for_embedding` 5 phần; tách helper `build_text_for_embedding` dùng chung với corruption.
   - Viết `src/evaluation/testset.py`: 10 câu deterministic (3 summary, 3 authors, 2 date, 2 categories), mẫu câu khớp logic trích xuất của `retrieval/qa.py`.
-  - Sửa `src/retrieval/index.py` lưu `persist_path` tương đối trong manifest (tránh hardcode `C:\Users\...`).
+  - Sửa `src/retrieval/index.py` lưu `persist_path` tương đối trong manifest (tránh hardcode đường dẫn tuyệt đối của máy cá nhân, repo chạy được trên máy khác).
 - **Điều học được / Đóng góp chính:**
   - Data lineage: giữ nguyên raw snapshot là “bảo hiểm” để repair; schema contract phải chốt trước khi các module chạy song song.
 
-### ## TruongVietAnh-MSSV
+### ## TruongVietAnh-2A202602444
 - **Vai trò:** Observability & Evaluation.
 - **Công việc chi tiết đã hoàn thành:**
   - Viết `src/observability/quality.py` chuẩn GX 1.x (`gx.get_context(mode="ephemeral")`, `data_sources.add_pandas`, batch definition whole dataframe): 10 expectations gồm row count, not-null ×4, unique `paper_id`, độ dài `summary` ≥ 30, độ dài `title` ≥ 8, regex chống noise, `age_days` ≤ 180 với `mostly=0.75` (Freshness SLA 25%).
@@ -58,4 +58,5 @@
   - Viết `src/observability/reporting.py`: `phase1_report.md` và `corruption_report.md` (bảng 3 trạng thái, danh sách expectation fail, bảng tác động từng câu hỏi, phân tích sinh tự động từ số liệu).
   - Thêm `judge_fallback_count` vào `evaluation/metrics.py` để báo cáo minh bạch số câu được chấm bằng heuristic thay vì LLM.
 - **Điều học được / Đóng góp chính:**
-  - Quality Gate phát hiện 5/6 kịch bản lỗi (Freshness phát hiện kịch bản còn lại — drop latest), trong khi agent vẫn trả lời “trơn tru” → Silent Failure chỉ lộ ra nhờ observability.
+  - Trên dữ liệu corrupted, Quality Gate FAIL 5/10 expectation (unique `paper_id`, độ dài `title`, độ dài `summary`, regex noise, `age_days`) và Freshness chuyển STALE (50% dòng quá hạn, chủ yếu do `stale_date`), trong khi agent vẫn trả lời “trơn tru” → Silent Failure chỉ lộ ra nhờ observability.
+  - Giới hạn tự phát hiện: `drop_latest_records` **không** bị check nào bắt được. Khi thử chỉ bỏ 5 bài mới nhất, gate vẫn PASS và freshness vẫn FRESH (1/19 dòng quá hạn); dấu hiệu duy nhất là `latest_published` lùi từ 2026-07-22 về 2026-06-12. Hướng khắc phục: thêm check số dòng clean so với số raw records, hoặc giới hạn tuổi của bài mới nhất.

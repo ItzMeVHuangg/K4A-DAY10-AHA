@@ -3,16 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 import hashlib
 import json
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
 from core.config import Settings, load_settings
-from core.utils import now_utc, read_json
+from core.utils import now_utc, read_json, write_json
 from evaluation.metrics import evaluate_pipeline
 from ingestion.cleaning import build_clean_dataframe
 from ingestion.corruption import corrupt_clean_dataframe
-from ingestion.crossref import load_raw_records
+from ingestion.crossref import load_raw_records, parse_crossref_payload
 from observability.quality import build_freshness_report, freshness_report_path, run_data_quality_checks
 from observability.reporting import METRIC_KEYS, generate_corruption_report
 from pipelines.phase1 import load_dataset, save_dataset
@@ -44,6 +44,65 @@ def repair_from_raw(settings: Settings, run_date: datetime) -> pd.DataFrame:
     """Idempotent repair: rebuild the clean dataset from the immutable raw snapshot."""
     records = load_raw_records(settings.paths.raw_records_json)
     return build_clean_dataframe(records, run_date)
+
+
+def repair_from_api_response(settings: Settings, run_date: datetime) -> pd.DataFrame:
+    """Second-line repair: re-parse the original API response in case the parsed records file is damaged."""
+    records = parse_crossref_payload(read_json(settings.paths.raw_api_response))
+    return build_clean_dataframe(records, run_date)
+
+
+REPAIR_STRATEGIES: list[tuple[str, Callable[[Settings, datetime], pd.DataFrame]]] = [
+    ("rebuild_from_raw_records", repair_from_raw),
+    ("reparse_raw_api_response", repair_from_api_response),
+]
+
+
+def detect_violations(quality: dict[str, Any], freshness: dict[str, Any]) -> list[str]:
+    """Everything that should stop a dataset from reaching the vector store."""
+    triggers = [f"quality:{check}" for check in quality["failed_checks"]]
+    if not freshness["is_fresh"]:
+        triggers.append(f"freshness:stale_ratio={freshness['stale_ratio']:.2f}")
+    return triggers
+
+
+def self_heal(
+    settings: Settings,
+    run_date: datetime,
+    quality: dict[str, Any],
+    freshness: dict[str, Any],
+    expected_papers: int,
+) -> tuple[pd.DataFrame | None, dict[str, Any]]:
+    """Auto-repair loop: triggered by gate violations, tries each trusted source in order, and only
+    promotes a candidate that passes the same quality gate and freshness SLA. Nothing is promoted
+    (the dataset stays quarantined) if every strategy fails."""
+    log: dict[str, Any] = {
+        "checked_at": now_utc().isoformat(timespec="seconds"),
+        "triggers": detect_violations(quality, freshness),
+        "attempts": [],
+        "strategy": None,
+        "promoted": False,
+    }
+    log["triggered"] = bool(log["triggers"])
+    if not log["triggered"]:
+        return None, log
+
+    for name, strategy in REPAIR_STRATEGIES:
+        try:
+            candidate = strategy(settings, run_date)
+            candidate_quality = run_data_quality_checks(candidate, settings, "repaired", expected_papers=expected_papers)
+            candidate_freshness = build_freshness_report(
+                candidate, settings, freshness_report_path(settings, "repaired")
+            )
+            remaining = detect_violations(candidate_quality, candidate_freshness)
+        except Exception as exc:
+            log["attempts"].append({"strategy": name, "success": False, "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        log["attempts"].append({"strategy": name, "success": not remaining, "remaining_violations": remaining})
+        if not remaining:
+            log.update(strategy=name, promoted=True)
+            return candidate, log
+    return None, log
 
 
 def _require_baseline(settings: Settings) -> None:
@@ -98,8 +157,9 @@ def main() -> None:
     save_dataset(corrupted_df, paths.corrupted_clean_csv, paths.corrupted_clean_json)
     print(f"[corruption] Injected 6 corruption scenarios -> {len(corrupted_df)} rows ({paths.corruption_log.name}).")
 
-    # 4. Observability on corrupted data.
-    corrupted_quality = run_data_quality_checks(corrupted_df, settings, "corrupted")
+    # 4. Observability on corrupted data (completeness is checked against the raw lineage).
+    expected_papers = len(load_raw_records(paths.raw_records_json))
+    corrupted_quality = run_data_quality_checks(corrupted_df, settings, "corrupted", expected_papers=expected_papers)
     corrupted_freshness = build_freshness_report(corrupted_df, settings, freshness_report_path(settings, "corrupted"))
     _print_alert(corrupted_quality, corrupted_freshness)
 
@@ -110,9 +170,25 @@ def main() -> None:
     )
     corrupted = corrupted_bundle.summary
 
-    # 6. Repair from raw (twice, to prove idempotency).
-    repaired_df = repair_from_raw(settings, run_date)
-    second_pass = repair_from_raw(settings, run_date)
+    # 6. Self-healing: violations automatically trigger repair; only a candidate that passes the gate is promoted.
+    repaired_df, healing = self_heal(settings, run_date, corrupted_quality, corrupted_freshness, expected_papers)
+    write_json(paths.self_healing_log, healing)
+    if not healing["triggered"]:
+        print("[self-heal] No violation detected, repair not needed.")
+        repaired_df = corrupted_df
+    elif not healing["promoted"]:
+        raise RuntimeError(
+            f"Self-healing failed, dataset stays quarantined (see {paths.self_healing_log.name}): {healing['attempts']}"
+        )
+    else:
+        print(
+            f"[self-heal] {len(healing['triggers'])} violation(s) triggered auto-repair -> "
+            f"strategy '{healing['strategy']}' passed the gate and was promoted."
+        )
+
+    # Idempotency proof: running the promoted strategy again must give byte-identical content.
+    strategy = dict(REPAIR_STRATEGIES).get(healing["strategy"], repair_from_raw)
+    second_pass = strategy(settings, run_date)
     save_dataset(repaired_df, paths.repaired_clean_csv, paths.repaired_clean_json)
     repair_check = {
         "content_hash": _content_hash(repaired_df),
@@ -124,7 +200,7 @@ def main() -> None:
         f"identical to baseline={repair_check['identical_to_baseline']} | deterministic={repair_check['deterministic']}"
     )
 
-    repaired_quality = run_data_quality_checks(repaired_df, settings, "repaired")
+    repaired_quality = run_data_quality_checks(repaired_df, settings, "repaired", expected_papers=expected_papers)
     repaired_freshness = build_freshness_report(repaired_df, settings, freshness_report_path(settings, "repaired"))
     print(f"[repair] Quality gate: {'PASS' if repaired_quality['success'] else 'FAIL'} | fresh={repaired_freshness['is_fresh']}")
 
@@ -148,6 +224,7 @@ def main() -> None:
         baseline_freshness=baseline_freshness,
         corruption_log=read_json(paths.corruption_log),
         repair_check=repair_check,
+        self_healing=healing,
         corrupted_answers=corrupted_bundle.answers,
     )
     _print_comparison(

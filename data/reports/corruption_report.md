@@ -1,6 +1,6 @@
 # Corruption Report — Baseline vs Corrupted vs Repaired
 
-_Generated automatically by `script/run_corruption_flow.py` at 2026-09-25T09:15:25+00:00._
+_Generated automatically by `script/run_corruption_flow.py` at 2026-09-25T09:37:07+00:00._
 All three states are evaluated on the same fixed test set (`data/eval/test_set.json`).
 
 ## 1. Three-state comparison
@@ -11,7 +11,7 @@ All three states are evaluated on the same fixed test set (`data/eval/test_set.j
 | Mean Token F1 | 1.000 | 0.569 | 1.000 | -0.431 | +0.000 |
 | LLM Judge Accuracy | 1.000 | 0.600 | 1.000 | -0.400 | +0.000 |
 | Mean Judge Score (1-5) | 5.000 | 3.200 | 5.000 | -1.800 | +0.000 |
-| Quality Gate (GX 1.x) | PASS (10/10) | FAIL (5/10) | PASS (10/10) | | |
+| Quality Gate (GX 1.x) | PASS (11/11) | FAIL (5/11) | PASS (11/11) | | |
 | Freshness SLA | FRESH (1/24 stale) | STALE (11/22 stale) | FRESH (1/24 stale) | | |
 | Judge heuristic fallbacks | 10 | 10 | 10 | | |
 | Rows indexed | 24 | 22 | 24 | | |
@@ -48,6 +48,7 @@ Seed `42` — 24 input rows → 22 corrupted rows.
 
 | Failed expectation | Column | Unexpected / Observed |
 | --- | --- | --- |
+| `expect_column_unique_value_count_to_be_between` | paper_id | 19 |
 | `expect_column_values_to_be_unique` | paper_id | 6 rows (27.3%) |
 | `expect_column_value_lengths_to_be_between` | title | 3 rows (13.6%) |
 | `expect_column_value_lengths_to_be_between` | summary | 4 rows (18.2%) |
@@ -61,5 +62,6 @@ Freshness on corrupted data: stale ratio 50.0% (SLA ≤ 25%), latest published 2
 - **Silent failure:** on corrupted data the agent still answered all 10 questions without raising any error, yet Retrieval Hit Rate fell from 1.000 to 0.500 (-0.500). Only the data quality gate and freshness monitor surfaced the problem.
 - **Retrieval impact:** hit rate -0.500. 5 question(s) missed their ground-truth paper; 5 of them target papers removed by `drop_latest_records`, so the agent answered from a *different* paper instead of saying it did not know.
 - **Answer impact:** token F1 -0.431, judge accuracy -0.400. Questions that retrieved the right paper but still got a wrong answer: eval_007 (blank_summary, stale_date), eval_009 (blank_summary, stale_date) — content corruption (blank summary, shifted date) poisons the answer even when retrieval succeeds.
-- **Repair:** data was rebuilt from the immutable raw snapshot (not patched). Quality gate PASS (10/10), freshness FRESH (1/24 stale); metrics recovered exactly to baseline.
+- **Self-healing (automatic):** 7 violation(s) (`quality:expect_column_unique_value_count_to_be_between(paper_id)`, `quality:expect_column_values_to_be_unique(paper_id)`, `quality:expect_column_value_lengths_to_be_between(title)`, `quality:expect_column_value_lengths_to_be_between(summary)`, `quality:expect_column_values_to_not_match_regex(summary)`, `quality:expect_column_values_to_be_between(age_days)`, `freshness:stale_ratio=0.50`) triggered the repair loop without manual action. Attempts: `rebuild_from_raw_records` ✅. Promoted to the vector store: True (a candidate is only promoted after it passes the same quality gate and freshness SLA).
+- **Repair:** data was rebuilt from the immutable raw snapshot (not patched). Quality gate PASS (11/11), freshness FRESH (1/24 stale); metrics recovered exactly to baseline.
 - **Idempotency check:** repaired dataset identical to baseline clean dataset = True; two consecutive repairs identical = True (content hash `3886d8d5dbbf`).
