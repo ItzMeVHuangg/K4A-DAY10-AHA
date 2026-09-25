@@ -9,7 +9,7 @@
 | Khóa/Lớp         | K4                         |
 | Tên nhóm         | AHA                        |
 | Vai trò chính    | Trưởng nhóm — Corruption & Pipeline Integration |
-| Repository         | [Đường dẫn repository] |
+| Repository         | https://github.com/ItzMeVHuangg/K4A-DAY10-AHA/ |
 | Ngày hoàn thành | 2026-09-25                 |
 
 ## 2. Vai trò và phạm vi công việc
@@ -124,12 +124,12 @@ Nếu có thêm thời gian: tự động trigger `repair_from_raw` khi gate FAI
 
 ## 10. Cam kết của thành viên
 
-- [ ] Nội dung báo cáo phản ánh đúng phần việc và mức hiểu của tôi.
-- [ ] Tôi có thể giải thích luồng end-to-end, không chỉ module mình phụ trách.
-- [ ] Mọi kết luận về kết quả đều có artifact hoặc metric để đối chiếu.
-- [ ] Tôi không ghi “đã chạy thành công” cho phần chưa được kiểm chứng.
-- [ ] Báo cáo không chứa `.env`, API key, token hoặc secret.
-- [ ] Báo cáo này không phải bản sao nguyên văn của báo cáo nhóm hoặc báo cáo thành viên khác.
+- [X] Nội dung báo cáo phản ánh đúng phần việc và mức hiểu của tôi.
+- [x] Tôi có thể giải thích luồng end-to-end, không chỉ module mình phụ trách.
+- [x] Mọi kết luận về kết quả đều có artifact hoặc metric để đối chiếu.
+- [x] Tôi không ghi “đã chạy thành công” cho phần chưa được kiểm chứng.
+- [x] Báo cáo không chứa `.env`, API key, token hoặc secret.
+- [x] Báo cáo này không phải bản sao nguyên văn của báo cáo nhóm hoặc báo cáo thành viên khác.
 
 **Họ và tên:** Vũ Việt Hoàng
-**Ngày xác nhận:** [YYYY-MM-DD]
+**Ngày xác nhận:** 2026-09-25
