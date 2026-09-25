@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,8 @@ MAX_ROWS = 5000
 MIN_SUMMARY_CHARS = 30
 MIN_TITLE_CHARS = 8
 MAX_STALE_RATIO = 0.25
+# Completeness vs. lineage: at least 90% of the raw papers must survive into the dataset.
+MIN_COMPLETENESS_RATIO = 0.90
 NOISE_REGEX = r"[#@$%^&*~]{3,}"
 NOT_NULL_COLUMNS = ["paper_id", "title", "summary", "text_for_embedding"]
 GX_COLUMNS = ["paper_id", "title", "summary", "published", "age_days", "text_for_embedding"]
@@ -38,9 +41,21 @@ def freshness_report_path(settings: Settings, state: str) -> Path:
     return settings.paths.quality_dir / f"freshness_report_{state}.json"
 
 
-def _build_suite(settings: Settings, report_name: str) -> gx.ExpectationSuite:
+def min_expected_papers(expected_papers: int) -> int:
+    return math.ceil(expected_papers * MIN_COMPLETENESS_RATIO)
+
+
+def _build_suite(settings: Settings, report_name: str, expected_papers: int | None) -> gx.ExpectationSuite:
     suite = gx.ExpectationSuite(name=f"papers_suite_{report_name}")
     suite.add_expectation(gxe.ExpectTableRowCountToBeBetween(min_value=MIN_ROWS, max_value=MAX_ROWS))
+    if expected_papers:
+        # Catches silently missing ingestion batches (e.g. the newest papers never arrived).
+        # Counted on unique ids so duplicated rows cannot hide the loss.
+        suite.add_expectation(
+            gxe.ExpectColumnUniqueValueCountToBeBetween(
+                column="paper_id", min_value=min_expected_papers(expected_papers), max_value=None
+            )
+        )
     for column in NOT_NULL_COLUMNS:
         suite.add_expectation(gxe.ExpectColumnValuesToNotBeNull(column=column))
     suite.add_expectation(gxe.ExpectColumnValuesToBeUnique(column="paper_id"))
@@ -77,8 +92,14 @@ def _summarize_result(item: dict[str, Any]) -> dict[str, Any]:
     return summary
 
 
-def run_data_quality_checks(df: pd.DataFrame, settings: Settings, report_name: str) -> dict[str, Any]:
-    """Validate a papers dataframe with a Great Expectations 1.x suite and persist the result."""
+def run_data_quality_checks(
+    df: pd.DataFrame, settings: Settings, report_name: str, expected_papers: int | None = None
+) -> dict[str, Any]:
+    """Validate a papers dataframe with a Great Expectations 1.x suite and persist the result.
+
+    `expected_papers` is the number of papers in the raw snapshot; when given, the suite also
+    checks that the dataset did not lose papers on the way (completeness against lineage).
+    """
     frame = df.reindex(columns=GX_COLUMNS).copy()
     for column in ["paper_id", "title", "summary", "published", "text_for_embedding"]:
         frame[column] = frame[column].astype(object)
@@ -88,7 +109,7 @@ def run_data_quality_checks(df: pd.DataFrame, settings: Settings, report_name: s
     data_asset = data_source.add_dataframe_asset(name="papers_asset")
     batch_def = data_asset.add_batch_definition_whole_dataframe("papers_batch")
     batch = batch_def.get_batch(batch_parameters={"dataframe": frame})
-    suite = context.suites.add(_build_suite(settings, report_name))
+    suite = context.suites.add(_build_suite(settings, report_name, expected_papers))
 
     validation = batch.validate(suite).to_json_dict()
     results = [_summarize_result(item) for item in validation.get("results", [])]
@@ -99,6 +120,7 @@ def run_data_quality_checks(df: pd.DataFrame, settings: Settings, report_name: s
         "validated_at": now_utc().isoformat(),
         "success": bool(validation.get("success")),
         "row_count": int(len(df)),
+        "expected_papers": expected_papers,
         "evaluated_expectations": len(results),
         "successful_expectations": len(results) - len(failed),
         "failed_expectations": len(failed),

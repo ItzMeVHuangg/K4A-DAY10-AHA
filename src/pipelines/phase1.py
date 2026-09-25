@@ -58,7 +58,7 @@ def main() -> None:
     print(f"[phase1] Clean rows: {len(df)} -> {paths.clean_csv.name}")
 
     # 5. Quality gate + freshness before anything reaches the vector store.
-    quality = run_data_quality_checks(df, settings, "baseline")
+    quality = run_data_quality_checks(df, settings, "baseline", expected_papers=len(records))
     freshness = build_freshness_report(df, settings, paths.freshness_report)
     print(
         f"[phase1] Quality gate: {'PASS' if quality['success'] else 'FAIL'} "

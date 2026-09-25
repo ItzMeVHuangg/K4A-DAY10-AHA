@@ -1,13 +1,15 @@
 {
   "report_name": "corrupted",
   "engine": "great_expectations 1.18.0",
-  "validated_at": "2026-09-25T09:15:16.389480+00:00",
+  "validated_at": "2026-09-25T09:36:58.100149+00:00",
   "success": false,
   "row_count": 22,
-  "evaluated_expectations": 10,
+  "expected_papers": 24,
+  "evaluated_expectations": 11,
   "successful_expectations": 5,
-  "failed_expectations": 5,
+  "failed_expectations": 6,
   "failed_checks": [
+    "expect_column_unique_value_count_to_be_between(paper_id)",
     "expect_column_values_to_be_unique(paper_id)",
     "expect_column_value_lengths_to_be_between(title)",
     "expect_column_value_lengths_to_be_between(summary)",
@@ -24,6 +26,16 @@
       },
       "success": true,
       "observed_value": 22
+    },
+    {
+      "expectation": "expect_column_unique_value_count_to_be_between",
+      "column": "paper_id",
+      "kwargs": {
+        "column": "paper_id",
+        "min_value": 22
+      },
+      "success": false,
+      "observed_value": 19
     },
     {
       "expectation": "expect_column_values_to_not_be_null",

@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-09-25T09:37:06+00:00",
+  "triggers": [
+    "quality:expect_column_unique_value_count_to_be_between(paper_id)",
+    "quality:expect_column_values_to_be_unique(paper_id)",
+    "quality:expect_column_value_lengths_to_be_between(title)",
+    "quality:expect_column_value_lengths_to_be_between(summary)",
+    "quality:expect_column_values_to_not_match_regex(summary)",
+    "quality:expect_column_values_to_be_between(age_days)",
+    "freshness:stale_ratio=0.50"
+  ],
+  "attempts": [
+    {
+      "strategy": "rebuild_from_raw_records",
+      "success": true,
+      "remaining_violations": []
+    }
+  ],
+  "strategy": "rebuild_from_raw_records",
+  "promoted": true,
+  "triggered": true
+}

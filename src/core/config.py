@@ -35,6 +35,7 @@ class Paths:
     freshness_report: Path
     baseline_report: Path
     corruption_log: Path
+    self_healing_log: Path
     corrupted_metrics: Path
     corrupted_answers: Path
     repaired_metrics: Path
@@ -107,6 +108,7 @@ def load_settings(project_dir: Path | None = None) -> Settings:
         freshness_report=data_dir / "quality" / "freshness_report.json",
         baseline_report=data_dir / "reports" / "phase1_report.md",
         corruption_log=data_dir / "results" / "corruption_log.json",
+        self_healing_log=data_dir / "results" / "self_healing_log.json",
         corrupted_metrics=data_dir / "results" / "corrupted_metrics.json",
         corrupted_answers=data_dir / "results" / "corrupted_answers.json",
         repaired_metrics=data_dir / "results" / "repaired_metrics.json",
@@ -116,7 +118,7 @@ def load_settings(project_dir: Path | None = None) -> Settings:
 
     return Settings(
         llm_provider=os.getenv("LLM_PROVIDER", "gemini"),
-        model_name=os.getenv("LLM_MODEL", "gemini-2.5-flash"),
+        model_name=os.getenv("LLM_MODEL", "gemini-3.5-flash"),
         google_api_key=os.getenv("GOOGLE_API_KEY"),
         openai_api_key=os.getenv("OPENAI_API_KEY"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),

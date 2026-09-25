@@ -15,7 +15,7 @@ from core.utils import normalize_whitespace, read_json, write_json
 from retrieval.embeddings import MiniLMEmbeddings
 from retrieval.index import LocalEmbeddingIndex
 from retrieval.llm import build_llm
-from retrieval.qa import answer_question
+from retrieval.qa import answer_question, qa_mode
 
 
 class JudgeVerdict(BaseModel):
@@ -45,7 +45,22 @@ def _token_f1(reference: str, prediction: str) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
-def _judge_answer(settings: Settings, question: str, reference: str, prediction: str) -> JudgeVerdict:
+def _heuristic_verdict(reference: str, prediction: str, error: str) -> JudgeVerdict:
+    f1 = _token_f1(reference, prediction)
+    score = 5 if f1 >= 0.95 else 3 if f1 >= 0.5 else 1
+    return JudgeVerdict(
+        score=score,
+        correct=score >= 3,
+        reasoning=f"Fallback heuristic judge used because the LLM evaluator was unavailable ({error}).",
+    )
+
+
+def _describe_error(exc: Exception) -> str:
+    return f"{type(exc).__name__}: {normalize_whitespace(str(exc))[:160]}"
+
+
+def _judge_answer(settings: Settings, question: str, reference: str, prediction: str) -> tuple[JudgeVerdict, str | None]:
+    """Return the LLM verdict, or a heuristic verdict plus the reason the LLM judge failed."""
     prompt = f"""
 Evaluate the model answer against the reference answer.
 
@@ -60,14 +75,13 @@ Return:
 """.strip()
     try:
         llm = build_llm(settings=settings, temperature=0.0).with_structured_output(JudgeVerdict)
-        return llm.invoke(prompt)
-    except Exception:
-        score = 5 if _token_f1(reference, prediction) >= 0.95 else 3 if _token_f1(reference, prediction) >= 0.5 else 1
-        return JudgeVerdict(
-            score=score,
-            correct=score >= 3,
-            reasoning="Fallback heuristic judge used because the LLM evaluator was unavailable.",
-        )
+        verdict = llm.invoke(prompt)
+        if not isinstance(verdict, JudgeVerdict):
+            raise ValueError(f"LLM judge returned unparseable output: {verdict!r}")
+        return verdict, None
+    except Exception as exc:
+        error = _describe_error(exc)
+        return _heuristic_verdict(reference, prediction, error), error
 
 
 def _run_ragas(settings: Settings, answers: list[dict[str, Any]]) -> dict[str, Any]:
@@ -109,10 +123,17 @@ def evaluate_pipeline(
 ) -> EvaluationBundle:
     test_set = read_json(test_set_path)
     answers: list[dict[str, Any]] = []
+    judge_error: str | None = None
 
     for item in test_set:
         result = answer_question(item["question"], settings=settings, index=index)
-        judge = _judge_answer(settings, item["question"], item["ground_truth"], result.answer)
+        if judge_error is None:
+            judge, judge_error = _judge_answer(settings, item["question"], item["ground_truth"], result.answer)
+            if judge_error:
+                print(f"[evaluation] LLM judge unavailable, using heuristic for the rest of this run: {judge_error}")
+        else:
+            # Stop calling a provider that already failed (quota, bad model name) instead of timing out 10 times.
+            judge = _heuristic_verdict(item["ground_truth"], result.answer, judge_error)
         retrieval_hit = any(doc_id in item["ground_truth_doc_ids"] for doc_id in result.retrieved_doc_ids)
         answers.append(
             {
@@ -122,6 +143,7 @@ def evaluate_pipeline(
                 "ground_truth": item["ground_truth"],
                 "ground_truth_doc_ids": item["ground_truth_doc_ids"],
                 "answer": result.answer,
+                "answer_mode": result.answer_mode,
                 "retrieved_doc_ids": result.retrieved_doc_ids,
                 "retrieved_contexts": result.retrieved_contexts,
                 "retrieval_hit": retrieval_hit,
@@ -137,6 +159,9 @@ def evaluate_pipeline(
         "judge_accuracy": mean(1.0 if item["judge"]["correct"] else 0.0 for item in answers),
         "mean_judge_score": mean(item["judge"]["score"] for item in answers),
         "judge_fallback_count": sum(item["judge"]["reasoning"].startswith("Fallback heuristic") for item in answers),
+        "judge_error": judge_error,
+        "qa_mode": qa_mode(),
+        "llm_answer_count": sum(item["answer_mode"] == "llm" for item in answers),
     }
     summary["ragas"] = _run_ragas(settings, answers)
 
