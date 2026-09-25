@@ -1,6 +1,6 @@
 # Phase 1 Report — Baseline Data Pipeline
 
-_Generated automatically by `script/run_phase1.py` at 2026-09-25T10:30:06+00:00._
+_Generated automatically by `script/run_phase1.py` at 2026-09-25T10:40:02+00:00._
 
 ## 1. Source & Lineage
 
@@ -16,7 +16,7 @@ _Generated automatically by `script/run_phase1.py` at 2026-09-25T10:30:06+00:00.
 | Collection | papers-baseline |
 | Top K | 4 |
 | Llm Provider | mock / gemini-3.5-flash |
-| Run Date | 2026-09-25T10:29:59+00:00 |
+| Run Date | 2026-09-25T10:39:54+00:00 |
 
 ## 2. RAG Evaluation (baseline)
 

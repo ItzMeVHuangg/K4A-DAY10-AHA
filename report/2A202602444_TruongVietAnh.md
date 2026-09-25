@@ -48,7 +48,7 @@ RAG pipeline có thể tiếp tục chạy dù dữ liệu bị thiếu, trùng,
 
 ### Cách triển khai
 
-Quality Gate dùng context ephemeral của Great Expectations 1.x, pandas data source và whole-dataframe batch. Suite kiểm tra số dòng, null ở các cột bắt buộc, unique `paper_id`, độ dài title/summary, regex chống noise và giới hạn `age_days` với tỷ lệ cho phép 25% dữ liệu quá hạn. Freshness report tính latest/oldest publication date, số dòng stale, stale ratio và `is_fresh`.
+Quality Gate dùng context ephemeral của Great Expectations 1.x, pandas data source và whole-dataframe batch. Suite gồm 11 expectation: số dòng, completeness theo lineage (số `paper_id` duy nhất ≥ 90% số raw records), null ở các cột bắt buộc, unique `paper_id`, độ dài title/summary, regex chống noise và giới hạn `age_days` với tỷ lệ cho phép 25% dữ liệu quá hạn. Freshness report tính latest/oldest publication date, số dòng stale, stale ratio và `is_fresh`.
 
 Reporting nhận các payload metrics/quality/freshness từ pipeline rồi ghi Markdown có bảng metric và trạng thái. Evaluation giữ lại retrieval hit rate, Token F1, judge accuracy, mean judge score; khi LLM judge không khả dụng, ghi rõ số lần heuristic fallback thay vì che giấu nguồn metric.
 

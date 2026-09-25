@@ -43,9 +43,9 @@
 | 6 kịch bản corruption tái lập được (seed 42) | `corruption.py` | `corruption_log.json` (24 → 22 dòng) | Lệnh kiểm tra Guide bước 7 |
 | Self-healing: vi phạm tự kích hoạt repair, chỉ promote khi qua gate | `corruption_flow.py::self_heal` | `self_healing_log.json` (7 trigger, `promoted=true`) | `uv run python script/run_corruption_flow.py` exit 0 |
 | Repair idempotent + so sánh 3 trạng thái | `corruption_flow.py` | `corruption_report.md` | `identical_to_baseline=True`, `deterministic=True` |
-| Test tự động | `tests/` | 59 passed | `uv run pytest -q` |
+| Test tự động | `tests/` | 59 passed, coverage 97% (`src/`) | `uv run pytest -q --cov=src` |
 
-Output cụ thể (lần chạy lại 2026-09-25 10:14–10:15 UTC trên `main` sau khi merge): bảng console `Baseline vs Corrupted vs Repaired` cho hit rate 1.000 / 0.500 / 1.000, token F1 1.000 / 0.569 / 1.000, Quality Gate PASS 11/11 / FAIL 5/11 / PASS 11/11.
+Output cụ thể (lần chạy lại 2026-09-25 10:39–10:40 UTC trên `main` sau khi merge): bảng console `Baseline vs Corrupted vs Repaired` cho hit rate 1.000 / 0.500 / 1.000, token F1 1.000 / 0.569 / 1.000, Quality Gate PASS 11/11 / FAIL 5/11 / PASS 11/11.
 
 ## 4. Giải thích phần kỹ thuật đã thực hiện
 

@@ -87,9 +87,9 @@ uv run pytest -q              # 59 test
 
 | Lệnh             | Trạng thái | Thời điểm chạy gần nhất | Bằng chứng |
 | ----------------- | ---------- | ----------------------------- | ------------------------------------ |
-| Baseline pipeline | Thành công (exit 0, ~20s) | 2026-09-25 10:14 UTC | `data/reports/phase1_report.md`, `data/results/baseline_metrics.json` |
-| Corruption flow   | Thành công (exit 0, ~21s) | 2026-09-25 10:15 UTC | `data/reports/corruption_report.md`, `data/results/{corrupted,repaired}_metrics.json`, `data/results/self_healing_log.json` |
-| Test suite        | 59 passed | 2026-09-25 | `uv run pytest -q` |
+| Baseline pipeline | Thành công (exit 0, ~20s) | 2026-09-25 10:39 UTC | `data/reports/phase1_report.md`, `data/results/baseline_metrics.json` |
+| Corruption flow   | Thành công (exit 0, ~21s) | 2026-09-25 10:40 UTC | `data/reports/corruption_report.md`, `data/results/{corrupted,repaired}_metrics.json`, `data/results/self_healing_log.json` |
+| Test suite        | 59 passed, coverage 97% (`src/`) | 2026-09-25 | `uv run pytest -q --cov=src` |
 
 ## 5. Ingestion, cleaning và data contract
 

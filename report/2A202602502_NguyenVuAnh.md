@@ -12,7 +12,7 @@
 | **Khóa / Lớp** | K4 — L3A (Day 10) |
 | **Tên Nhóm** | **AHA** |
 | **Vai trò chính** | **Data Foundation & Retrieval Lead** |
-| **Kho mã nguồn (Repository)** | [https://github.com/ItzMeVHuangg/K4-L3A-Day10-Data-Pipeline-Data-Observability](https://github.com/ItzMeVHuangg/K4-L3A-Day10-Data-Pipeline-Data-Observability) |
+| **Kho mã nguồn (Repository)** | [https://github.com/ItzMeVHuangg/K4A-DAY10-AHA](https://github.com/ItzMeVHuangg/K4A-DAY10-AHA) |
 | **Ngày hoàn thành** | 2026-09-25 |
 
 ---
@@ -31,7 +31,7 @@
 ### 2.2. Phối Hợp Kỹ Thuật Liên Vai Trò
 
 * **Hỗ trợ Pipeline Integration (Vũ Việt Hoàng - `pipelines/`):** Cung cấp API `load_raw_records` và hàm làm sạch deterministic `build_clean_dataframe` làm nền tảng cho cơ chế **Idempotent Self-Healing / Repair**, giúp quá trình phục hồi dữ liệu từ bản thô ban đầu đạt tính nhất quán 100% (`identical_to_baseline = True`).
-* **Hỗ trợ Observability & Quality Gate (Trương Việt Anh - `observability/`):** Chốt trước Data Contract về kiểu dữ liệu (đặc biệt `published` dạng chuỗi ISO `YYYY-MM-DD`, `age_days` dạng số nguyên `Int64`, khử sạch `NaN/None`) để 10 Expectations của Great Expectations 1.x và Freshness SLA chạy trơn tru, không gặp lỗi TypeError.
+* **Hỗ trợ Observability & Quality Gate (Trương Việt Anh - `observability/`):** Chốt trước Data Contract về kiểu dữ liệu (đặc biệt `published` dạng chuỗi ISO `YYYY-MM-DD`, `age_days` dạng số nguyên `Int64`, khử sạch `NaN/None`) để 11 Expectations của Great Expectations 1.x và Freshness SLA chạy trơn tru, không gặp lỗi TypeError.
 
 ---
 
@@ -43,7 +43,7 @@
 | **CP1 — Data Cleaning** | `data/clean/papers_clean.csv` | 24 dòng, 16 cột, không thẻ rác, có `text_for_embedding` | Console: `Clean thành công 24 dòng` | **ĐẠT** |
 | **CP2 — Benchmark Testset** | `data/eval/test_set.json` | 10 câu hỏi cố định, phủ đủ 4 nhóm | Console: `Sinh được 10 câu hỏi test` | **ĐẠT** |
 | **CP3 — Vector Store Index** | `data/chroma/`, manifest JSON | Index 24 docs, `persist_path` tương đối | Manifest: `"persist_path": "data/chroma"`, portable | **ĐẠT** |
-| **CP4 — Automated Tests** | `tests/` test suite | Toàn bộ test case Ingestion & Cleaning đỗ | **59/59 passed** (100% test coverage) | **ĐẠT** |
+| **CP4 — Automated Tests** | `tests/` test suite | Toàn bộ test case Ingestion & Cleaning đỗ | **59/59 passed** (coverage 97% toàn bộ `src/`, đo bằng `pytest --cov=src`) | **ĐẠT** |
 
 ---
 
@@ -97,7 +97,7 @@
 
 ### 4.4. Vector Index Architecture & Portability (`src/retrieval/index.py`)
 
-* **Sửa lỗi tính khả chuyển (Portability Bug):** Trước đây, Chroma lưu đường dẫn tuyệt đối dạng `C:\Users\vuanh\...` vào file manifest `papers_embeddings.json`. Khi chuyển sang máy của giảng viên hoặc môi trường CI, pipeline sẽ crash vì không tìm thấy đường dẫn. Tôi đã tái cấu trúc để manifest chỉ lưu đường dẫn tương đối (`"data/chroma"`), và khi `load()` sẽ tự động ghép với `project_dir`.
+* **Sửa lỗi tính khả chuyển (Portability Bug):** Trước đây, Chroma lưu đường dẫn tuyệt đối dạng `C:\Users\...` vào file manifest `papers_embeddings.json`. Khi chuyển sang máy của giảng viên hoặc môi trường CI, pipeline sẽ crash vì không tìm thấy đường dẫn. Tôi đã tái cấu trúc để manifest chỉ lưu đường dẫn tương đối (`"data/chroma"`), và khi `load()` sẽ tự động ghép với `project_dir`.
 * **Cơ chế Idempotent Sync & Ghost Vector Mitigation:**
   * Mỗi khi index lại, collection cũ sẽ được xóa sạch và tạo mới với cấu hình Cosine Similarity (`{"hnsw": {"space": "cosine"}}`).
   * Bổ sung cơ chế dọn dẹp các thư mục segment mồ côi (`_prune_orphan_segments`) trên hệ điều hành Windows khi SQLite chưa kịp giải phóng file handle.
@@ -119,8 +119,8 @@
 
 ### Sự Cố: "Cái Bẫy Silent Failure" và Giới Hạn Của Metric Token F1
 
-* **Hiện tượng:** Tại câu hỏi kiểm thử `eval_002` ("Who authored the paper 'Data Observability and Quality Gates for Production RAG Systems'?"), khi chạy trên tập dữ liệu bị tiêm lỗi `drop_latest_records`, tài liệu gốc bị mất khỏi Vector Store. Retrieval đã lấy nhầm một bài báo khác (`retrieval_hit_rate = 0.0`). Tuy nhiên, chỉ số **Token F1 vẫn đạt điểm tuyệt đối 1.0**!
-* **Nguyên nhân gốc rễ:** Bài báo bị truy xuất nhầm lại có đồng tác giả trùng tên với tác giả của bài báo mục tiêu. Do đó, câu trả lời sinh ra vẫn chứa đầy đủ các token của ground truth, khiến phép đo Token F1 bị đánh lừa.
+* **Hiện tượng:** Tại câu hỏi kiểm thử `eval_002` ("Who authored the paper 'Multi-Agent Consensus for High-Stakes Fact Verification'?"), khi chạy trên tập dữ liệu bị tiêm lỗi `drop_latest_records`, tài liệu gốc bị mất khỏi Vector Store. Retrieval đã lấy nhầm một bài báo khác (`retrieval_hit = False`, top-1 là `10.1145/3637528.3671820` thay vì `10.1145/3637528.3671808`). Tuy nhiên, chỉ số **Token F1 vẫn đạt điểm tuyệt đối 1.0**!
+* **Nguyên nhân gốc rễ:** Bài báo bị truy xuất nhầm có danh sách tác giả trùng hoàn toàn với bài mục tiêu (`Phong Vu, Ngan Hoang`). Do đó, câu trả lời sinh ra vẫn chứa đầy đủ các token của ground truth, khiến phép đo Token F1 bị đánh lừa.
 * **Bài học rút ra:** 
   1. Không bao giờ được dựa vào một chỉ số đơn lẻ (như Token F1 hay BLEU) để đánh giá chất lượng RAG. Phải kết hợp chặt chẽ giữa **Retrieval Hit Rate** (ở tầng dữ liệu) và **LLM-as-a-Judge** (ở tầng ngữ nghĩa).
   2. Đây chính là minh chứng rõ nhất cho **Silent Failure**: AI Agent vẫn trả lời rất tự tin và đạt điểm F1 cao ngất ngưởng, nhưng bản chất ngữ cảnh thực tế đã hoàn toàn sai lệch!
@@ -160,11 +160,11 @@ flowchart TD
 | Chỉ Số / Tín Hiệu Đánh Giá | Dữ Liệu Sạch (Baseline) | Dữ Liệu Lỗi (Corrupted) | Sau Phục Hồi (Repaired) | Phân Tích Chuyên Môn Của Cá Nhân |
 | :--- | :---: | :---: | :---: | :--- |
 | **`retrieval_hit_rate`** | **1.000** | **0.500** | **1.000** | Sụt giảm 50% do kịch bản `drop_latest_records` loại bỏ đúng 5 bài trong testset. Phục hồi 100% sau khi repair từ raw. |
-| **`mean_token_f1`** | **1.000** | **0.569** | **1.000** | Suy giảm mạnh do các câu trả lời bị dính nhiễu (`inject_noise`) và xóa tóm tắt (`blank_summary`). |
+| **`mean_token_f1`** | **1.000** | **0.569** | **1.000** | 4/10 câu có F1 = 0: eval_003, eval_005 (bài đúng bị `drop_latest_records`), eval_007 (`blank_summary`), eval_009 (`stale_date`); eval_001 chỉ đạt 0.69 vì câu trả lời lấy từ bài bị `inject_noise`. |
 | **`judge_accuracy`** | **1.000** | **0.600** | **1.000** | Judge (heuristic fallback vì chạy `LLM_PROVIDER=mock`, `judge_fallback_count = 10`) đánh giá tỷ lệ trả lời đúng giảm từ 10/10 xuống 6/10 câu. |
-| **`mean_judge_score`** | **5.000 / 5.0** | **3.200 / 5.0** | **5.000 / 5.0** | Điểm số chất lượng ngữ nghĩa giảm từ mức hoàn hảo xuống mức trung bình. |
+| **`mean_judge_score`** | **5.000 / 5.0** | **3.200 / 5.0** | **5.000 / 5.0** | Điểm judge (heuristic theo token F1) giảm từ mức tối đa xuống mức trung bình. |
 | **Data Quality Gate (GX 1.x)** | **PASS (11/11)** | **FAIL (5/11)** | **PASS (11/11)** | Bắt được 6 lỗi vi phạm: thiếu bài theo lineage (19 < 22 `paper_id`), tính duy nhất, độ dài tiêu đề/tóm tắt, ký tự rác và độ tuổi `age_days`. |
-| **Freshness SLA Status** | **FRESH (4.2% stale)** | **STALE (50.0% stale)** | **FRESH (4.2% stale)** | Lỗi `stale_date` đẩy 50% bài báo quá hạn 180 ngày; Freshness Gate lập tức bật cờ cảnh báo đỏ. |
+| **Freshness SLA Status** | **FRESH (4.2% stale)** | **STALE (50.0% stale)** | **FRESH (4.2% stale)** | 11/22 dòng quá hạn 180 ngày: 7 dòng bị `stale_date`, 3 bản nhân bản của các dòng đó, và 1 bài vốn đã 181 ngày. Freshness Gate bật cờ cảnh báo. |
 | **Tính Nhất Quán (Hash Match)** | Chuẩn gốc | Sai lệch | **Khớp 100% Baseline** | Chứng minh cơ chế Idempotent Repair đạt tính hoàn hảo tuyệt đối. |
 
 ---
