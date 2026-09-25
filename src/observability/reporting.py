@@ -2,6 +2,86 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.utils import now_utc, write_text
+
+METRIC_KEYS = ["retrieval_hit_rate", "mean_token_f1", "judge_accuracy", "mean_judge_score"]
+METRIC_LABELS = {
+    "retrieval_hit_rate": "Retrieval Hit Rate",
+    "mean_token_f1": "Mean Token F1",
+    "judge_accuracy": "LLM Judge Accuracy",
+    "mean_judge_score": "Mean Judge Score (1-5)",
+}
+
+
+def _fmt(value: Any) -> str:
+    if isinstance(value, bool):
+        return "✅ True" if value else "❌ False"
+    if isinstance(value, float):
+        return f"{value:.3f}"
+    if value is None:
+        return "N/A"
+    return str(value)
+
+
+def _signed(value: float) -> str:
+    return f"{value:+.3f}"
+
+
+def _gate(quality: dict[str, Any] | None) -> str:
+    if not quality:
+        return "N/A"
+    status = "PASS" if quality["success"] else "FAIL"
+    return f"{status} ({quality['successful_expectations']}/{quality['evaluated_expectations']})"
+
+
+def _freshness(freshness: dict[str, Any] | None) -> str:
+    if not freshness:
+        return "N/A"
+    status = "FRESH" if freshness["is_fresh"] else "STALE"
+    return f"{status} ({freshness['stale_rows']}/{freshness['total_rows']} stale)"
+
+
+def _ragas(metrics: dict[str, Any]) -> str:
+    ragas = metrics.get("ragas")
+    if not isinstance(ragas, dict):
+        return "N/A"
+    if "skipped" in ragas:
+        return f"Skipped — {ragas['skipped']}"
+    if "error" in ragas:
+        return f"Error — {ragas['error']}"
+    return ", ".join(f"{key}={_fmt(value)}" for key, value in ragas.items())
+
+
+def _quality_table(quality: dict[str, Any]) -> list[str]:
+    lines = [
+        "| Expectation | Column | Params | Result | Observed / Unexpected |",
+        "| --- | --- | --- | :---: | --- |",
+    ]
+    for item in quality["results"]:
+        params = ", ".join(f"{k}={v}" for k, v in item["kwargs"].items() if k != "column") or "-"
+        if "unexpected_count" in item:
+            observed = f"{item['unexpected_count']} unexpected / {item.get('element_count', '?')} rows"
+        else:
+            observed = _fmt(item.get("observed_value"))
+        lines.append(
+            f"| `{item['expectation']}` | {item['column'] or '(table)'} | {params} | "
+            f"{'✅' if item['success'] else '❌'} | {observed} |"
+        )
+    return lines
+
+
+def _freshness_lines(freshness: dict[str, Any]) -> list[str]:
+    return [
+        "| Field | Value |",
+        "| --- | --- |",
+        f"| Latest published | {freshness['latest_published']} |",
+        f"| Oldest published | {freshness['oldest_published']} |",
+        f"| Age range (days) | {freshness['min_age_days']} – {freshness['max_age_days']} |",
+        f"| Stale rows (> {freshness['threshold_days']} days) | {freshness['stale_rows']} / {freshness['total_rows']} |",
+        f"| Stale ratio (SLA ≤ {freshness['max_stale_ratio']:.0%}) | {freshness['stale_ratio']:.1%} |",
+        f"| is_fresh | {_fmt(freshness['is_fresh'])} |",
+    ]
+
 
 def generate_phase1_report(
     report_path,
@@ -10,15 +90,57 @@ def generate_phase1_report(
     quality: dict[str, Any],
     freshness: dict[str, Any],
 ) -> None:
-    """TODO(student): viet markdown report cho baseline phase.
-
-    Pseudo-code:
-    1. Gom source summary.
-    2. In metrics retrieval/evaluation.
-    3. In data quality va freshness.
-    4. Ghi markdown vao report_path.
-    """
-    raise NotImplementedError("Student task: implement phase 1 report.")
+    """Write the baseline (phase 1) markdown report from pipeline outputs."""
+    lines = [
+        "# Phase 1 Report — Baseline Data Pipeline",
+        "",
+        f"_Generated automatically by `script/run_phase1.py` at {now_utc().isoformat(timespec='seconds')}._",
+        "",
+        "## 1. Source & Lineage",
+        "",
+        "| Field | Value |",
+        "| --- | --- |",
+    ]
+    lines += [f"| {key.replace('_', ' ').title()} | {_fmt(value)} |" for key, value in source_summary.items()]
+    lines += [
+        "",
+        "## 2. RAG Evaluation (baseline)",
+        "",
+        "| Metric | Value |",
+        "| --- | ---: |",
+        f"| Samples | {metrics['samples']} |",
+    ]
+    lines += [f"| {METRIC_LABELS[key]} (`{key}`) | {metrics[key]:.3f} |" for key in METRIC_KEYS]
+    lines += [
+        f"| Judge answers scored by heuristic fallback | {metrics.get('judge_fallback_count', 'N/A')} / {metrics['samples']} |",
+        "",
+        f"Ragas: {_ragas(metrics)}",
+        "",
+        f"## 3. Data Quality Gate — {_gate(quality)}",
+        "",
+        f"Engine: {quality['engine']}, rows validated: {quality['row_count']}.",
+        "",
+        *_quality_table(quality),
+        "",
+        f"## 4. Freshness SLA — {_freshness(freshness)}",
+        "",
+        *_freshness_lines(freshness),
+        "",
+        "## 5. Conclusion",
+        "",
+    ]
+    if quality["success"] and freshness["is_fresh"]:
+        lines.append(
+            "The clean dataset passes every quality expectation and the freshness SLA, so it was indexed into the "
+            f"`papers-baseline` collection. These metrics (hit rate {_fmt(metrics['retrieval_hit_rate'])}, token F1 "
+            f"{_fmt(metrics['mean_token_f1'])}) are the reference point for the corruption experiment."
+        )
+    else:
+        lines.append(
+            f"⚠️ The baseline dataset violates the quality gate or freshness SLA ({', '.join(quality['failed_checks']) or 'freshness'}). "
+            "Investigate before trusting these metrics."
+        )
+    write_text(report_path, "\n".join(lines) + "\n")
 
 
 def generate_corruption_report(
@@ -30,6 +152,142 @@ def generate_corruption_report(
     repaired_quality: dict[str, Any],
     corrupted_freshness: dict[str, Any],
     repaired_freshness: dict[str, Any],
+    baseline_quality: dict[str, Any] | None = None,
+    baseline_freshness: dict[str, Any] | None = None,
+    corruption_log: dict[str, Any] | None = None,
+    repair_check: dict[str, Any] | None = None,
+    corrupted_answers: list[dict[str, Any]] | None = None,
 ) -> None:
-    """TODO(student): viet markdown report so sanh baseline/corrupted/repaired."""
-    raise NotImplementedError("Student task: implement corruption comparison report.")
+    """Write the Baseline vs Corrupted vs Repaired comparison report."""
+    lines = [
+        "# Corruption Report — Baseline vs Corrupted vs Repaired",
+        "",
+        f"_Generated automatically by `script/run_corruption_flow.py` at {now_utc().isoformat(timespec='seconds')}._",
+        "All three states are evaluated on the same fixed test set (`data/eval/test_set.json`).",
+        "",
+        "## 1. Three-state comparison",
+        "",
+        "| Metric / Signal | Baseline | Corrupted | Repaired | Δ Corruption | Δ Repaired vs Baseline |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for key in METRIC_KEYS:
+        base, bad, fixed = baseline_metrics[key], corrupted_metrics[key], repaired_metrics[key]
+        lines.append(
+            f"| {METRIC_LABELS[key]} | {base:.3f} | {bad:.3f} | {fixed:.3f} | {_signed(bad - base)} | {_signed(fixed - base)} |"
+        )
+    lines += [
+        f"| Quality Gate (GX 1.x) | {_gate(baseline_quality)} | {_gate(corrupted_quality)} | {_gate(repaired_quality)} | | |",
+        f"| Freshness SLA | {_freshness(baseline_freshness)} | {_freshness(corrupted_freshness)} | {_freshness(repaired_freshness)} | | |",
+        f"| Judge heuristic fallbacks | {baseline_metrics.get('judge_fallback_count', 'N/A')} | {corrupted_metrics.get('judge_fallback_count', 'N/A')} | {repaired_metrics.get('judge_fallback_count', 'N/A')} | | |",
+        f"| Rows indexed | {baseline_quality['row_count'] if baseline_quality else 'N/A'} | {corrupted_quality['row_count']} | {repaired_quality['row_count']} | | |",
+        "",
+    ]
+
+    if corruption_log:
+        lines += [
+            "## 2. Injected corruptions",
+            "",
+            f"Seed `{corruption_log['seed']}` — {corruption_log['input_rows']} input rows → {corruption_log['output_rows']} corrupted rows.",
+            "",
+            "| # | Scenario | Rows affected | What it simulates |",
+            "| ---: | --- | ---: | --- |",
+        ]
+        lines += [
+            f"| {i} | `{s['name']}` | {s['affected_rows']} | {s['description']} |"
+            for i, s in enumerate(corruption_log["scenarios"], start=1)
+        ]
+        lines.append("")
+
+    scenarios_by_paper: dict[str, list[str]] = {}
+    for scenario in (corruption_log or {}).get("scenarios", []):
+        for paper_id in scenario["affected_paper_ids"]:
+            scenarios_by_paper.setdefault(paper_id, []).append(scenario["name"])
+    if corrupted_answers:
+        lines += [
+            "### Per-question impact (corrupted state)",
+            "",
+            "| Question | Type | Corruption on ground-truth paper | Hit | Token F1 | Agent answer |",
+            "| --- | --- | --- | :---: | ---: | --- |",
+        ]
+        for answer in corrupted_answers:
+            causes = sorted({name for doc_id in answer["ground_truth_doc_ids"] for name in scenarios_by_paper.get(doc_id, [])})
+            text = answer["answer"].replace("|", "/")[:70] or "_(empty)_"
+            lines.append(
+                f"| {answer['id']} | {answer['question_type']} | {', '.join(causes) or '-'} | "
+                f"{'✅' if answer['retrieval_hit'] else '❌'} | {answer['token_f1']:.2f} | {text} |"
+            )
+        lines.append("")
+
+    lines += [
+        "## 3. Quality Gate alerts on corrupted data",
+        "",
+        "| Failed expectation | Column | Unexpected / Observed |",
+        "| --- | --- | --- |",
+    ]
+    for item in corrupted_quality["results"]:
+        if item["success"]:
+            continue
+        detail = (
+            f"{item['unexpected_count']} rows ({item.get('unexpected_percent', 0):.1f}%)"
+            if "unexpected_count" in item
+            else _fmt(item.get("observed_value"))
+        )
+        lines.append(f"| `{item['expectation']}` | {item['column'] or '(table)'} | {detail} |")
+    if corrupted_quality["success"]:
+        lines.append("| _none — the gate did not detect the corruption_ | | |")
+    lines += [
+        "",
+        f"Freshness on corrupted data: stale ratio {corrupted_freshness['stale_ratio']:.1%} "
+        f"(SLA ≤ {corrupted_freshness['max_stale_ratio']:.0%}), latest published {corrupted_freshness['latest_published']} "
+        f"→ is_fresh = {corrupted_freshness['is_fresh']}.",
+        "",
+        "## 4. Analysis",
+        "",
+    ]
+
+    drops = {key: corrupted_metrics[key] - baseline_metrics[key] for key in METRIC_KEYS}
+    worst = min(("retrieval_hit_rate", "mean_token_f1", "judge_accuracy"), key=lambda k: drops[k])
+    lines.append(
+        f"- **Silent failure:** on corrupted data the agent still answered all {corrupted_metrics['samples']} questions "
+        f"without raising any error, yet {METRIC_LABELS[worst]} fell from {_fmt(baseline_metrics[worst])} to "
+        f"{_fmt(corrupted_metrics[worst])} ({_signed(drops[worst])}). Only the data quality gate and freshness monitor "
+        "surfaced the problem."
+    )
+    if corrupted_answers:
+        misses = [a for a in corrupted_answers if not a["retrieval_hit"]]
+        dropped_ids = set(next((s["affected_paper_ids"] for s in (corruption_log or {}).get("scenarios", [])
+                                if s["name"] == "drop_latest_records"), []))
+        missed_dropped = sum(any(d in dropped_ids for d in a["ground_truth_doc_ids"]) for a in misses)
+        lines.append(
+            f"- **Retrieval impact:** hit rate {_signed(drops['retrieval_hit_rate'])}. {len(misses)} question(s) missed their "
+            f"ground-truth paper; {missed_dropped} of them target papers removed by `drop_latest_records`, so the agent "
+            "answered from a *different* paper instead of saying it did not know."
+        )
+        wrong_but_hit = [
+            f"{a['id']} ({', '.join(sorted({n for d in a['ground_truth_doc_ids'] for n in scenarios_by_paper.get(d, [])})) or 'no corruption'})"
+            for a in corrupted_answers
+            if a["retrieval_hit"] and a["token_f1"] < 0.5
+        ]
+        lines.append(
+            f"- **Answer impact:** token F1 {_signed(drops['mean_token_f1'])}, judge accuracy {_signed(drops['judge_accuracy'])}. "
+            f"Questions that retrieved the right paper but still got a wrong answer: {', '.join(wrong_but_hit) or 'none'} — "
+            "content corruption (blank summary, shifted date) poisons the answer even when retrieval succeeds."
+        )
+    else:
+        lines.append(
+            f"- **Impact:** hit rate {_signed(drops['retrieval_hit_rate'])}, token F1 {_signed(drops['mean_token_f1'])}, "
+            f"judge accuracy {_signed(drops['judge_accuracy'])}."
+        )
+    recovered = all(abs(repaired_metrics[key] - baseline_metrics[key]) < 1e-9 for key in METRIC_KEYS)
+    lines.append(
+        f"- **Repair:** data was rebuilt from the immutable raw snapshot (not patched). Quality gate "
+        f"{_gate(repaired_quality)}, freshness {_freshness(repaired_freshness)}; metrics "
+        + ("recovered exactly to baseline." if recovered else "did not fully match baseline — see table above.")
+    )
+    if repair_check:
+        lines.append(
+            f"- **Idempotency check:** repaired dataset identical to baseline clean dataset = "
+            f"{repair_check['identical_to_baseline']}; two consecutive repairs identical = {repair_check['deterministic']} "
+            f"(content hash `{repair_check['content_hash'][:12]}`)."
+        )
+    write_text(report_path, "\n".join(lines) + "\n")

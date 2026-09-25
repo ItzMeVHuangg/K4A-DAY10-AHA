@@ -11,24 +11,29 @@ from core.config import Settings, normalized_provider, require_llm_credentials
 def build_llm(settings: Settings, temperature: float = 0.0):
     provider = normalized_provider(settings)
     require_llm_credentials(settings)
+    # Bound every remote call so a slow or rate-limited provider cannot hang the pipeline.
+    limits = {"timeout": settings.llm_timeout_seconds, "max_retries": settings.llm_max_retries}
 
     if provider == "gemini":
         return ChatGoogleGenerativeAI(
             model=settings.model_name,
             google_api_key=settings.google_api_key,
             temperature=temperature,
+            **limits,
         )
     if provider == "openai":
         return ChatOpenAI(
             model=settings.model_name,
             api_key=settings.openai_api_key,
             temperature=temperature,
+            **limits,
         )
     if provider == "anthropic":
         return ChatAnthropic(
             model=settings.model_name,
             api_key=settings.anthropic_api_key,
             temperature=temperature,
+            **limits,
         )
     if provider == "openrouter":
         return ChatOpenAI(
@@ -36,6 +41,7 @@ def build_llm(settings: Settings, temperature: float = 0.0):
             api_key=settings.openrouter_api_key,
             base_url=settings.openrouter_base_url,
             temperature=temperature,
+            **limits,
         )
     if provider == "ollama":
         return ChatOllama(
@@ -49,6 +55,7 @@ def build_llm(settings: Settings, temperature: float = 0.0):
             api_key=settings.custom_llm_api_key or "unused",
             base_url=settings.custom_llm_base_url,
             temperature=temperature,
+            **limits,
         )
     if provider == "mock":
         from langchain_core.language_models.fake_chat_models import FakeListChatModel
