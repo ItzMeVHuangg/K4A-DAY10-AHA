@@ -136,6 +136,7 @@ def evaluate_pipeline(
         "mean_token_f1": mean(item["token_f1"] for item in answers),
         "judge_accuracy": mean(1.0 if item["judge"]["correct"] else 0.0 for item in answers),
         "mean_judge_score": mean(item["judge"]["score"] for item in answers),
+        "judge_fallback_count": sum(item["judge"]["reasoning"].startswith("Fallback heuristic") for item in answers),
     }
     summary["ragas"] = _run_ragas(settings, answers)
 

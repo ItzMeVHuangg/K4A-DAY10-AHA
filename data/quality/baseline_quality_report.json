@@ -1,0 +1,131 @@
+{
+  "report_name": "baseline",
+  "engine": "great_expectations 1.18.0",
+  "validated_at": "2026-09-25T08:43:42.233416+00:00",
+  "success": true,
+  "row_count": 24,
+  "evaluated_expectations": 10,
+  "successful_expectations": 10,
+  "failed_expectations": 0,
+  "failed_checks": [],
+  "results": [
+    {
+      "expectation": "expect_table_row_count_to_be_between",
+      "column": null,
+      "kwargs": {
+        "min_value": 5,
+        "max_value": 5000
+      },
+      "success": true,
+      "observed_value": 24
+    },
+    {
+      "expectation": "expect_column_values_to_not_be_null",
+      "column": "paper_id",
+      "kwargs": {
+        "column": "paper_id"
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_values_to_be_unique",
+      "column": "paper_id",
+      "kwargs": {
+        "column": "paper_id"
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_values_to_not_be_null",
+      "column": "title",
+      "kwargs": {
+        "column": "title"
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_value_lengths_to_be_between",
+      "column": "title",
+      "kwargs": {
+        "column": "title",
+        "min_value": 8
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_values_to_not_be_null",
+      "column": "summary",
+      "kwargs": {
+        "column": "summary"
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_value_lengths_to_be_between",
+      "column": "summary",
+      "kwargs": {
+        "column": "summary",
+        "min_value": 30
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_values_to_not_match_regex",
+      "column": "summary",
+      "kwargs": {
+        "column": "summary",
+        "regex": "[#@$%^&*~]{3,}"
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_values_to_not_be_null",
+      "column": "text_for_embedding",
+      "kwargs": {
+        "column": "text_for_embedding"
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 0,
+      "unexpected_percent": 0.0
+    },
+    {
+      "expectation": "expect_column_values_to_be_between",
+      "column": "age_days",
+      "kwargs": {
+        "column": "age_days",
+        "mostly": 0.75,
+        "min_value": 0.0,
+        "max_value": 180.0
+      },
+      "success": true,
+      "element_count": 24,
+      "unexpected_count": 1,
+      "unexpected_percent": 4.166666666666666,
+      "sample_unexpected": [
+        "181"
+      ]
+    }
+  ]
+}
