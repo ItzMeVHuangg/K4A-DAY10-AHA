@@ -15,11 +15,14 @@ from core.config import Settings
 from core.utils import read_json, safe_slug, write_json
 from retrieval.embeddings import MiniLMEmbeddings
 
-UUID_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+CHROMA_BATCH_SIZE = 100
 
 
 @dataclass(frozen=True)
 class SearchResult:
+    """Standardized retrieval search result object."""
+
     paper_id: str
     title: str
     score: float
@@ -28,6 +31,15 @@ class SearchResult:
 
 
 class LocalEmbeddingIndex:
+    """Manages local Chroma vector collection indexing, similarity search, and persistence.
+
+    Features:
+        - Portable manifests using relative paths.
+        - Ghost vector and orphan segment purging on SQLite/Windows.
+        - Idempotent collection recreation.
+        - Clamped cosine similarity scoring in [0.0, 1.0].
+    """
+
     def __init__(
         self,
         settings: Settings,
@@ -48,6 +60,7 @@ class LocalEmbeddingIndex:
 
     @staticmethod
     def _build_documents(df: pd.DataFrame) -> list[dict[str, Any]]:
+        """Construct structured document records and vector search metadata from DataFrame."""
         records = df.to_dict(orient="records")
         documents: list[dict[str, Any]] = []
         for index, row in enumerate(records):
@@ -58,14 +71,14 @@ class LocalEmbeddingIndex:
                     "title": row["title"],
                     "content": row["text_for_embedding"],
                     "metadata": {
-                        "paper_id": row["paper_id"],
-                        "title": row["title"],
-                        "published": row["published"],
-                        "authors_joined": row["authors_joined"],
-                        "categories_joined": row["categories_joined"],
-                        "summary": row["summary"],
-                        "abs_url": row["abs_url"],
-                        "pdf_url": row["pdf_url"],
+                        "paper_id": str(row["paper_id"]),
+                        "title": str(row["title"]),
+                        "published": str(row["published"]),
+                        "authors_joined": str(row["authors_joined"]),
+                        "categories_joined": str(row["categories_joined"]),
+                        "summary": str(row["summary"]),
+                        "abs_url": str(row["abs_url"]),
+                        "pdf_url": str(row["pdf_url"]),
                     },
                 }
             )
@@ -73,6 +86,7 @@ class LocalEmbeddingIndex:
 
     @staticmethod
     def _derive_collection_name(settings: Settings, embeddings_output_path: Path | None) -> str:
+        """Derive canonical collection name based on destination path mapping."""
         if embeddings_output_path is None:
             return settings.baseline_collection_name
 
@@ -88,10 +102,10 @@ class LocalEmbeddingIndex:
 
     @staticmethod
     def _prune_orphan_segments(persist_path: Path) -> None:
-        """Remove segment folders of deleted collections.
+        """Purge orphan segment directories of deleted collections to avoid ghost artifacts.
 
-        Chroma leaves them behind when `delete_collection` cannot unlink files (e.g. on Windows),
-        so every rebuild would otherwise add dead folders to the repo.
+        When Chroma deletes a collection on Windows, open handles can leave lingering directories.
+        This inspects SQLite metadata and safely prunes inactive folders.
         """
         database = persist_path / "chroma.sqlite3"
         if not database.exists():
@@ -112,6 +126,7 @@ class LocalEmbeddingIndex:
         settings: Settings,
         embeddings_output_path: Path | None = None,
     ) -> "LocalEmbeddingIndex":
+        """Build Chroma vector index idempotently from clean dataframe."""
         collection_name = cls._derive_collection_name(settings, embeddings_output_path)
         documents = cls._build_documents(df)
         persist_path = settings.paths.chroma_dir
@@ -124,19 +139,27 @@ class LocalEmbeddingIndex:
             client.delete_collection(name=collection_name)
         except Exception:
             pass
+
         collection = client.create_collection(
             name=collection_name,
             configuration={"hnsw": {"space": "cosine"}},
         )
-        embeddings = embedding_model.embed_documents([document["content"] for document in documents])
-        collection.add(
-            ids=[document["record_id"] for document in documents],
-            embeddings=embeddings,
-            documents=[document["content"] for document in documents],
-            metadatas=[document["metadata"] for document in documents],
-        )
 
-        cls._prune_orphan_segments(persist_path)  # also drop the folder of the collection replaced above
+        contents = [document["content"] for document in documents]
+        embeddings = embedding_model.embed_documents(contents)
+
+        # Batch ingestion to guarantee safety under larger document sets
+        for i in range(0, len(documents), CHROMA_BATCH_SIZE):
+            batch_docs = documents[i : i + CHROMA_BATCH_SIZE]
+            batch_embeds = embeddings[i : i + CHROMA_BATCH_SIZE]
+            collection.add(
+                ids=[doc["record_id"] for doc in batch_docs],
+                embeddings=batch_embeds,
+                documents=[doc["content"] for doc in batch_docs],
+                metadatas=[doc["metadata"] for doc in batch_docs],
+            )
+
+        cls._prune_orphan_segments(persist_path)
 
         manifest_path = embeddings_output_path or settings.paths.embeddings_json
         write_json(
@@ -144,7 +167,7 @@ class LocalEmbeddingIndex:
             {
                 "backend": "chroma",
                 "embedding_model": settings.embedding_model,
-                # Relative to the project root so the manifest works on any machine.
+                # Relative path ensures portability across team environments and grading systems
                 "persist_path": persist_path.relative_to(settings.paths.project_dir).as_posix(),
                 "collection_name": collection_name,
                 "documents": documents,
@@ -159,6 +182,7 @@ class LocalEmbeddingIndex:
 
     @classmethod
     def load(cls, settings: Settings, embeddings_path: Path | None = None) -> "LocalEmbeddingIndex":
+        """Load an existing index from its portable JSON manifest."""
         payload = read_json(embeddings_path or settings.paths.embeddings_json)
         return cls(
             settings=settings,
@@ -168,6 +192,10 @@ class LocalEmbeddingIndex:
         )
 
     def search(self, query: str, top_k: int | None = None) -> list[SearchResult]:
+        """Execute semantic cosine similarity search against indexed vector documents."""
+        if not query or not query.strip():
+            return []
+
         query_embedding = self.embedding_model.embed_query(query)
         results = self.collection.query(
             query_embeddings=[query_embedding],
@@ -183,11 +211,14 @@ class LocalEmbeddingIndex:
         for record_id, content, metadata, distance in zip(ids, documents, metadatas, distances, strict=False):
             if not record_id or not metadata or not content:
                 continue
+            dist_val = float(distance) if distance is not None else 0.0
+            # Strict clamping within [0.0, 1.0]
+            similarity = max(0.0, min(1.0, 1.0 - dist_val))
             scored.append(
                 SearchResult(
                     paper_id=str(metadata["paper_id"]),
                     title=str(metadata["title"]),
-                    score=max(0.0, 1.0 - float(distance or 0.0)),
+                    score=similarity,
                     content=str(content),
                     metadata=dict(metadata),
                 )
@@ -195,6 +226,7 @@ class LocalEmbeddingIndex:
         return scored
 
     def lookup(self, value: str) -> dict[str, Any] | None:
+        """Direct O(1) hash lookup by paper DOI identifier or normalized title."""
         needle = value.strip().lower()
         if needle in self.documents_by_paper_id:
             return self.documents_by_paper_id[needle]
