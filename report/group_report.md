@@ -171,14 +171,14 @@ Test set chọn 5 bài mới nhất + 5 bài rải đều phần còn lại. Tes
 
 | Check        | Quality dimension | Ngưỡng/kỳ vọng | Kết quả baseline      | Bằng chứng |
 | ------------ | ----------------- | ------------------ | ----------------------- | ------------ |
-| `ExpectTableRowCountToBeBetween` | Completeness | 5–5000 | PASS (24) | `baseline_quality_report.json` |
-| `ExpectColumnUniqueValueCountToBeBetween(paper_id)` | Completeness (so với lineage) | ≥ 90% số raw records (≥ 22/24) | PASS (24) | 〃 |
-| `ExpectColumnValuesToNotBeNull` ×4 | Completeness | paper_id, title, summary, text_for_embedding | PASS | 〃 |
-| `ExpectColumnValuesToBeUnique(paper_id)` | Uniqueness | 0 trùng | PASS | 〃 |
-| `ExpectColumnValueLengthsToBeBetween(summary)` | Validity | ≥ 30 ký tự | PASS | 〃 |
-| `ExpectColumnValueLengthsToBeBetween(title)` | Validity | ≥ 8 ký tự | PASS | 〃 |
-| `ExpectColumnValuesToNotMatchRegex(summary)` | Validity | không có chuỗi `[#@$%^&*~]{3,}` | PASS | 〃 |
-| `ExpectColumnValuesToBeBetween(age_days)` | Timeliness | 0–180, `mostly=0.75` | PASS (1/24 ngoài ngưỡng) | 〃 |
+| `ExpectTableRowCountToBeBetween` | Completeness | 5–5000 | PASS (24) | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[0]`: `observed_value = 24` |
+| `ExpectColumnUniqueValueCountToBeBetween(paper_id)` | Completeness (so với lineage) | ≥ 90% số raw records (≥ 22/24) | PASS (24) | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[1]`: `observed_value = 24` |
+| `ExpectColumnValuesToNotBeNull` ×4 | Completeness | paper_id, title, summary, text_for_embedding | PASS | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[2,4,6,9]`: `unexpected_count = 0` / 24 mỗi cột |
+| `ExpectColumnValuesToBeUnique(paper_id)` | Uniqueness | 0 trùng | PASS | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[3]`: `unexpected_count = 0` / 24 |
+| `ExpectColumnValueLengthsToBeBetween(summary)` | Validity | ≥ 30 ký tự | PASS | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[7]`: `unexpected_count = 0` / 24 |
+| `ExpectColumnValueLengthsToBeBetween(title)` | Validity | ≥ 8 ký tự | PASS | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[5]`: `unexpected_count = 0` / 24 |
+| `ExpectColumnValuesToNotMatchRegex(summary)` | Validity | không có chuỗi `[#@$%^&*~]{3,}` | PASS | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[8]`: `unexpected_count = 0` / 24 |
+| `ExpectColumnValuesToBeBetween(age_days)` | Timeliness | 0–180, `mostly=0.75` | PASS (1/24 ngoài ngưỡng) | [`baseline_quality_report.json`](../data/quality/baseline_quality_report.json) → `results[10]`: `unexpected_count = 1` / 24 (4.2% ≤ 25%); chi tiết ở [`freshness_report.json`](../data/quality/freshness_report.json) |
 
 ### Freshness
 

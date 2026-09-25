@@ -19,7 +19,7 @@
 | Checkpoint | Vũ Việt Hoàng | Nguyễn Vũ Anh | Trương Việt Anh |
 | --- | --- | --- | --- |
 | **CP0** — Môi trường & Raw Ingestion | Dựng `.venv` (Python 3.13), `.env`, fork repo & mời collaborator | `crossref.py`: parse Crossref, retry 429/5xx, fallback snapshot offline | Đọc rubric, chốt data contract (schema clean + test set) |
-| **CP1** — Cleaning & Quality Gate | Review contract giữa cleaning ↔ quality | `cleaning.py`: chuẩn hóa text, `age_days`, dedupe, `text_for_embedding` | `quality.py`: GX 1.x suite 10 expectations + Freshness SLA |
+| **CP1** — Cleaning & Quality Gate | Review contract giữa cleaning ↔ quality | `cleaning.py`: chuẩn hóa text, `age_days`, dedupe, `text_for_embedding` | `quality.py`: GX 1.x suite 11 expectations + Freshness SLA |
 | **CP2** — Test set & Index | Skeleton `phase1.py` | `testset.py` (10 câu, 4 loại) + smoke test Chroma `papers-baseline` | `reporting.generate_phase1_report` |
 | **CP3** — Baseline end-to-end | Ghép `phase1.py`, chạy end-to-end, xử lý lỗi LLM treo (timeout/retry) | Kiểm tra artifact `data/clean/`, `data/eval/` | Thêm `judge_fallback_count` vào metrics, kiểm tra `phase1_report.md` |
 | **CP4** — Corruption | `corruption.py`: 6 kịch bản lỗi, seed 42, log chi tiết | Hàm `repair_from_raw` (tái tạo từ raw) | Kiểm chứng GX bắt được lỗi trên data corrupted |
@@ -53,10 +53,10 @@
 ### ## TruongVietAnh-2A202602444
 - **Vai trò:** Observability & Evaluation.
 - **Công việc chi tiết đã hoàn thành:**
-  - Viết `src/observability/quality.py` chuẩn GX 1.x (`gx.get_context(mode="ephemeral")`, `data_sources.add_pandas`, batch definition whole dataframe): 10 expectations gồm row count, not-null ×4, unique `paper_id`, độ dài `summary` ≥ 30, độ dài `title` ≥ 8, regex chống noise, `age_days` ≤ 180 với `mostly=0.75` (Freshness SLA 25%).
+  - Viết `src/observability/quality.py` chuẩn GX 1.x (`gx.get_context(mode="ephemeral")`, `data_sources.add_pandas`, batch definition whole dataframe): 11 expectations gồm row count, not-null ×4, số `paper_id` duy nhất ≥ 90% lineage, unique `paper_id`, độ dài `summary` ≥ 30, độ dài `title` ≥ 8, regex chống noise, `age_days` ≤ 180 với `mostly=0.75` (Freshness SLA 25%).
   - Viết `build_freshness_report` (latest/oldest, stale_rows, stale_ratio, `is_fresh`).
   - Viết `src/observability/reporting.py`: `phase1_report.md` và `corruption_report.md` (bảng 3 trạng thái, danh sách expectation fail, bảng tác động từng câu hỏi, phân tích sinh tự động từ số liệu).
   - Thêm `judge_fallback_count` vào `evaluation/metrics.py` để báo cáo minh bạch số câu được chấm bằng heuristic thay vì LLM.
 - **Điều học được / Đóng góp chính:**
-  - Trên dữ liệu corrupted, Quality Gate FAIL 5/10 expectation (unique `paper_id`, độ dài `title`, độ dài `summary`, regex noise, `age_days`) và Freshness chuyển STALE (50% dòng quá hạn, chủ yếu do `stale_date`), trong khi agent vẫn trả lời “trơn tru” → Silent Failure chỉ lộ ra nhờ observability.
+  - Trên dữ liệu corrupted, Quality Gate FAIL 6/11 expectation (thiếu bài theo lineage 19 < 22, unique `paper_id`, độ dài `title`, độ dài `summary`, regex noise, `age_days`) và Freshness chuyển STALE (50% dòng quá hạn, chủ yếu do `stale_date`), trong khi agent vẫn trả lời “trơn tru” → Silent Failure chỉ lộ ra nhờ observability.
   - Giới hạn tự phát hiện: `drop_latest_records` **không** bị check nào bắt được. Khi thử chỉ bỏ 5 bài mới nhất, gate vẫn PASS và freshness vẫn FRESH (1/19 dòng quá hạn); dấu hiệu duy nhất là `latest_published` lùi từ 2026-07-22 về 2026-06-12. Hướng khắc phục: thêm check số dòng clean so với số raw records, hoặc giới hạn tuổi của bài mới nhất.

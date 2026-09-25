@@ -138,17 +138,17 @@ flowchart TD
     C -->|Cleaning & Modeling| D["Clean Data: papers_clean.csv/json"]
     D -->|Data Observability| E{"Quality Gate (GX 1.x & Freshness)"}
     
-    E -->|PASS 10/10| F["ChromaDB Vector Store: papers-baseline"]
+    E -->|PASS 11/11| F["ChromaDB Vector Store: papers-baseline"]
     F -->|MiniLM Retrieval| G["RAG QA Agent & Evaluation"]
     G -->|Benchmark Metrics| H["Phase 1 Baseline Report"]
     
     D -->|Tiêm 6 Dạng Độc Tố Dữ Liệu| I["Corrupted Data: papers_clean_corrupted.csv"]
-    I -->|Quality Check| J{"Quality Gate (FAIL 5/10 & Stale)"}
+    I -->|Quality Check| J{"Quality Gate (FAIL 5/11 & Stale)"}
     J -->|Cảnh Báo Suy Giảm| K["Corrupted Vector Store: papers-corrupted"]
     K -->|Hit Rate sụt 50%| L["Corrupted Evaluation Metrics"]
     
     C -.->|Tái Tạo Idempotent từ Raw| M["Repaired Data: papers_clean_repaired.csv"]
-    M -->|Quality Check| N{"Quality Gate (PASS 10/10 & Fresh)"}
+    M -->|Quality Check| N{"Quality Gate (PASS 11/11 & Fresh)"}
     N -->|Hồi Phục Tuyệt Đối| O["Repaired Vector Store: papers-repaired"]
     O -->|Hit Rate hồi phục 1.0| P["Báo Cáo Đối Chiếu 3 Trạng Thái"]
 ```
@@ -161,9 +161,9 @@ flowchart TD
 | :--- | :---: | :---: | :---: | :--- |
 | **`retrieval_hit_rate`** | **1.000** | **0.500** | **1.000** | Sụt giảm 50% do kịch bản `drop_latest_records` loại bỏ đúng 5 bài trong testset. Phục hồi 100% sau khi repair từ raw. |
 | **`mean_token_f1`** | **1.000** | **0.569** | **1.000** | Suy giảm mạnh do các câu trả lời bị dính nhiễu (`inject_noise`) và xóa tóm tắt (`blank_summary`). |
-| **`judge_accuracy`** | **1.000** | **0.600** | **1.000** | Giám khảo LLM đánh giá tỷ lệ trả lời đúng thực tế giảm từ 10/10 xuống 6/10 câu. |
+| **`judge_accuracy`** | **1.000** | **0.600** | **1.000** | Judge (heuristic fallback vì chạy `LLM_PROVIDER=mock`, `judge_fallback_count = 10`) đánh giá tỷ lệ trả lời đúng giảm từ 10/10 xuống 6/10 câu. |
 | **`mean_judge_score`** | **5.000 / 5.0** | **3.200 / 5.0** | **5.000 / 5.0** | Điểm số chất lượng ngữ nghĩa giảm từ mức hoàn hảo xuống mức trung bình. |
-| **Data Quality Gate (GX 1.x)** | **PASS (10/10)** | **FAIL (5/10)** | **PASS (10/10)** | Bắt được 5 lỗi vi phạm nghiêm trọng về tính duy nhất, độ dài tiêu đề/tóm tắt và ký tự rác. |
+| **Data Quality Gate (GX 1.x)** | **PASS (11/11)** | **FAIL (5/11)** | **PASS (11/11)** | Bắt được 6 lỗi vi phạm: thiếu bài theo lineage (19 < 22 `paper_id`), tính duy nhất, độ dài tiêu đề/tóm tắt, ký tự rác và độ tuổi `age_days`. |
 | **Freshness SLA Status** | **FRESH (4.2% stale)** | **STALE (50.0% stale)** | **FRESH (4.2% stale)** | Lỗi `stale_date` đẩy 50% bài báo quá hạn 180 ngày; Freshness Gate lập tức bật cờ cảnh báo đỏ. |
 | **Tính Nhất Quán (Hash Match)** | Chuẩn gốc | Sai lệch | **Khớp 100% Baseline** | Chứng minh cơ chế Idempotent Repair đạt tính hoàn hảo tuyệt đối. |
 

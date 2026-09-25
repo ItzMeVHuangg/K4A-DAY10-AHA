@@ -26,19 +26,19 @@
 
 | Hoạt động | Thành viên/module được hỗ trợ | Kết quả |
 | --- | --- | --- |
-| Kiểm chứng quality gate trên dữ liệu sau corruption | Vũ Việt Hoàng / `pipelines/corruption_flow.py` | Xác nhận 5/10 expectations pass ở trạng thái corrupted và 10/10 pass sau repair |
+| Kiểm chứng quality gate trên dữ liệu sau corruption | Vũ Việt Hoàng / `pipelines/corruption_flow.py` | Xác nhận 5/11 expectations pass ở trạng thái corrupted và 11/11 pass sau repair |
 | Đối chiếu metric và artifact giữa ba trạng thái | Nhóm pipeline và evaluation | Bảng Baseline vs Corrupted vs Repaired nhất quán với các file JSON |
 
 ## 3. Kết quả theo vai trò
 
 | Nhiệm vụ đã thực hiện | File/hàm/artifact liên quan | Kết quả bàn giao | Cách xác minh |
 | --- | --- | --- | --- |
-| Xây dựng Quality Gate theo Great Expectations 1.x | `src/observability/quality.py` | 10 expectations; baseline `10/10 PASS`, corrupted `5/10 PASS`, repaired `10/10 PASS` | `data/quality/baseline_quality_report.json`, `corrupted_quality_report.json`, `repaired_quality_report.json` |
+| Xây dựng Quality Gate theo Great Expectations 1.x | `src/observability/quality.py` | 11 expectations; baseline `11/11 PASS`, corrupted `5/11 PASS`, repaired `11/11 PASS` | `data/quality/baseline_quality_report.json`, `corrupted_quality_report.json`, `repaired_quality_report.json` |
 | Theo dõi freshness SLA | `build_freshness_report` | Baseline/repaired Fresh `4.2%` stale; corrupted Stale `50%` | `data/quality/freshness_report*.json` |
 | Tạo báo cáo kết quả pipeline | `src/observability/reporting.py` | Báo cáo baseline và bảng so sánh 3 trạng thái | `data/reports/phase1_report.md`, `data/reports/corruption_report.md` |
 | Làm minh bạch kết quả judge | `src/evaluation/metrics.py` | Thêm `judge_fallback_count`; cả ba trạng thái đều ghi nhận `10` | `data/results/*_metrics.json` |
 
-Output tiêu biểu: Quality Gate phát hiện 5 expectation fail trên dữ liệu corrupted, trong khi retrieval vẫn có thể trả lời mà không phát sinh runtime error. Đây là bằng chứng cho silent failure và vai trò của observability.
+Output tiêu biểu: Quality Gate phát hiện 6 expectation fail trên dữ liệu corrupted, trong khi retrieval vẫn có thể trả lời mà không phát sinh runtime error. Đây là bằng chứng cho silent failure và vai trò của observability.
 
 ## 4. Giải thích phần kỹ thuật đã thực hiện
 
@@ -71,7 +71,7 @@ uv run python script/run_corruption_flow.py
 ```
 
 - **Kết quả mong đợi:** Hai lệnh exit code 0; quality và metrics được sinh cho baseline, corrupted, repaired.
-- **Kết quả thực tế:** Baseline và repaired đạt hit rate/Token F1 `1.000`; corrupted đạt hit rate `0.500`, Token F1 `0.5689655172413793`; Quality Gate lần lượt `10/10`, `5/10`, `10/10` expectations pass.
+- **Kết quả thực tế:** Baseline và repaired đạt hit rate/Token F1 `1.000`; corrupted đạt hit rate `0.500`, Token F1 `0.5689655172413793`; Quality Gate lần lượt `11/11`, `5/11`, `11/11` expectations pass.
 - **Artifact/log:** `data/quality/`, `data/results/*_metrics.json`, `data/reports/*.md`; không ghi secret.
 
 ## 5. Một quyết định kỹ thuật quan trọng
@@ -80,7 +80,7 @@ uv run python script/run_corruption_flow.py
 - **Các phương án đã cân nhắc:** Dùng các kiểm tra pandas thủ công; hoặc dùng GX 1.x với ephemeral context, pandas data source và dataframe batch.
 - **Phương án đã chọn:** GX 1.x làm contract chính, kết hợp freshness report riêng cho SLA theo tỷ lệ stale.
 - **Lý do:** GX cung cấp expectation results có cấu trúc và failed checks rõ ràng; freshness là chỉ số theo tỷ lệ nên tách riêng giúp dễ diễn giải và không phụ thuộc vào một expectation đơn lẻ.
-- **Bằng chứng quyết định phù hợp:** `baseline_quality_report.json` có 10/10 pass; corrupted report chỉ còn 5/10 pass và liệt kê đúng các lỗi duplicate, title, summary, noise và age.
+- **Bằng chứng quyết định phù hợp:** `baseline_quality_report.json` có 11/11 pass; corrupted report chỉ còn 5/11 pass và liệt kê đúng các lỗi thiếu bài theo lineage (19 < 22 `paper_id`), duplicate, title, summary, noise và age.
 
 ## 6. Một lỗi hoặc blocker đã xử lý
 
@@ -97,7 +97,7 @@ uv run python script/run_corruption_flow.py
 2. Mỗi câu hỏi có ground-truth answer và DOI trong `ground_truth_doc_ids`. DOI được so với các document được retrieval để tính hit rate; answer được so với ground truth để tính Token F1 và judge metrics.
 3. Quality checks kiểm tra tính hợp lệ/cấu trúc của dữ liệu như null, duplicate, độ dài và noise. Freshness monitoring tập trung vào tuổi dữ liệu, tính stale ratio và cảnh báo khi vượt SLA 25%.
 4. Phải dùng cùng test set để mọi thay đổi giữa baseline, corrupted và repaired phản ánh dữ liệu/index, không phải do đề thi hoặc ground truth thay đổi.
-5. Repair thành công khi dữ liệu được dựng lại từ raw, Quality Gate trở lại `10/10 PASS`, freshness trở lại Fresh, các metric trở về baseline và kết quả repair lặp lại là deterministic.
+5. Repair thành công khi dữ liệu được dựng lại từ raw, Quality Gate trở lại `11/11 PASS`, freshness trở lại Fresh, các metric trở về baseline và kết quả repair lặp lại là deterministic.
 
 ## 8. Phân tích kết quả
 
@@ -109,13 +109,13 @@ uv run python script/run_corruption_flow.py
 | `mean_token_f1` | 1.000 | 0.56897 | 1.000 | Summary rỗng và stale date làm answer giảm độ khớp. |
 | `judge_accuracy` | 1.000 | 0.600 | 1.000 | Đây là heuristic fallback, không phải LLM judge thật. |
 | `mean_judge_score` | 5.000 | 3.200 | 5.000 | Giảm cùng xu hướng với Token F1. |
-| Quality checks | PASS 10/10 | FAIL 5/10 | PASS 10/10 | Quality Gate bắt được các lỗi structural/content. |
+| Quality checks | PASS 11/11 | FAIL 5/11 | PASS 11/11 | Quality Gate bắt được các lỗi structural/content. |
 | Freshness status | Fresh, 4.2% stale | Stale, 50% stale | Fresh, 4.2% stale | Stale date và mất dữ liệu mới làm freshness xấu đi. |
 
 ### Kết luận từ số liệu
 
 1. `drop_latest_records` → latest publication date lùi và freshness chuyển xấu → retrieval hit rate giảm từ `1.000` xuống `0.500`; agent vẫn có thể trả lời nên đây là silent failure.
-2. Repair từ raw snapshot → Quality Gate trở lại `10/10`, freshness trở lại Fresh → hit rate, Token F1, judge accuracy và mean judge score đều trở về baseline.
+2. Repair từ raw snapshot → Quality Gate trở lại `11/11`, freshness trở lại Fresh → hit rate, Token F1, judge accuracy và mean judge score đều trở về baseline.
 
 Corruption ảnh hưởng rõ nhất là `drop_latest_records` vì trực tiếp loại 5 tài liệu mới nhất, trong đó có tài liệu được tham chiếu bởi test set. `stale_date` cũng làm freshness fail mạnh: corrupted có `11/22` dòng ngoài ngưỡng, tương đương `50%`.
 
