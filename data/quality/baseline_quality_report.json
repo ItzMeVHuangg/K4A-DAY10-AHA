@@ -1,10 +1,11 @@
 {
   "report_name": "baseline",
   "engine": "great_expectations 1.18.0",
-  "validated_at": "2026-09-25T09:36:32.894588+00:00",
+  "validated_at": "2026-09-25T10:14:11.779407+00:00",
   "success": true,
   "row_count": 24,
   "expected_papers": 24,
+  "missing_columns": [],
   "evaluated_expectations": 11,
   "successful_expectations": 11,
   "failed_expectations": 0,

@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-25T09:37:06+00:00",
+  "checked_at": "2026-09-25T10:15:00+00:00",
   "triggers": [
     "quality:expect_column_unique_value_count_to_be_between(paper_id)",
     "quality:expect_column_values_to_be_unique(paper_id)",

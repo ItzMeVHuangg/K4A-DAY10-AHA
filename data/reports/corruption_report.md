@@ -1,6 +1,6 @@
 # Corruption Report — Baseline vs Corrupted vs Repaired
 
-_Generated automatically by `script/run_corruption_flow.py` at 2026-09-25T09:37:07+00:00._
+_Generated automatically by `script/run_corruption_flow.py` at 2026-09-25T10:15:00+00:00._
 All three states are evaluated on the same fixed test set (`data/eval/test_set.json`).
 
 ## 1. Three-state comparison

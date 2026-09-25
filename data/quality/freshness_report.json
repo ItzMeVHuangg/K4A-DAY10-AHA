@@ -1,9 +1,10 @@
 {
-  "checked_at": "2026-09-25T09:36:32.897386+00:00",
+  "checked_at": "2026-09-25T10:14:11.780761+00:00",
   "latest_published": "2026-07-22",
   "oldest_published": "2026-03-28",
   "min_age_days": 65,
   "max_age_days": 181,
+  "missing_age_days": 0,
   "threshold_days": 180,
   "max_stale_ratio": 0.25,
   "stale_rows": 1,

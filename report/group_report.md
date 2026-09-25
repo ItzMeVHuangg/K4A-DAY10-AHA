@@ -6,22 +6,22 @@
 | ------------------ | -------------------------- |
 | Khóa/Lớp         | K4                         |
 | Tên nhóm         | AHA                        |
-| Repository         | `[Đường dẫn repository GitHub của nhóm]` |
+| Repository         | https://github.com/ItzMeVHuangg/K4A-DAY10-AHA |
 | Ngày hoàn thành | 2026-09-25                 |
 
 ### Thành viên và phân công
 
 | STT | Họ và tên | MSSV | Vai trò chính | Module/deliverable sở hữu |
 | --: | --- | --- | --- | --- |
-| 1 | Vũ Việt Hoàng | [MSSV] | Trưởng nhóm — Corruption & Integration | `ingestion/corruption.py`, `pipelines/phase1.py`, `pipelines/corruption_flow.py`, `core/config.py`, `retrieval/llm.py` |
-| 2 | Nguyễn Vũ Anh | [MSSV] | Data Foundation & Retrieval | `ingestion/crossref.py`, `ingestion/cleaning.py`, `evaluation/testset.py`, `retrieval/index.py` |
-| 3 | Trương Việt Anh | [MSSV] | Observability & Evaluation | `observability/quality.py`, `observability/reporting.py`, `evaluation/metrics.py` |
+| 1 | Vũ Việt Hoàng | 2A202602398 | Trưởng nhóm — Corruption & Integration | `ingestion/corruption.py`, `pipelines/phase1.py`, `pipelines/corruption_flow.py` (gồm self-healing), `core/config.py`, `retrieval/llm.py`, `tests/` |
+| 2 | Nguyễn Vũ Anh | 2A202602502 | Data Foundation & Retrieval | `ingestion/crossref.py`, `ingestion/cleaning.py`, `evaluation/testset.py`, `retrieval/index.py` |
+| 3 | Trương Việt Anh | 2A202602444 | Observability & Evaluation | `observability/quality.py`, `observability/reporting.py`, `evaluation/metrics.py` |
 
 ## 2. Tóm tắt kết quả
 
-Nhóm đã hoàn thành toàn bộ 9 hàm còn trống của starter và chạy thành công hai entrypoint (`run_phase1.py`, `run_corruption_flow.py`, exit code 0). Baseline pipeline ingest 24 bài báo từ snapshot Crossref, làm sạch thành 24 dòng, qua Quality Gate GX 1.x (10/10 expectation PASS), Freshness SLA đạt (1/24 bài quá 180 ngày), index vào Chroma `papers-baseline` và đạt hit rate 1.000, token F1 1.000 trên test set 10 câu.
+Nhóm đã hoàn thành toàn bộ 9 hàm còn trống của starter và chạy thành công hai entrypoint (`run_phase1.py`, `run_corruption_flow.py`, exit code 0). Baseline pipeline ingest 24 bài báo từ snapshot Crossref, làm sạch thành 24 dòng, qua Quality Gate GX 1.x (11/11 expectation PASS), Freshness SLA đạt (1/24 bài quá 180 ngày), index vào Chroma `papers-baseline` và đạt hit rate 1.000, token F1 1.000 trên test set 10 câu.
 
-Khi tiêm 6 loại lỗi, **`drop_latest_records` ảnh hưởng mạnh nhất**: 5 bài mới nhất biến mất làm hit rate giảm còn 0.500 — agent vẫn trả lời tự tin nhưng từ bài báo khác (Silent Failure). `blank_summary` và `stale_date` làm sai câu trả lời dù retrieval đúng. Quality Gate phát hiện 5 expectation FAIL và Freshness chuyển STALE (50% dòng quá hạn). Repair tái tạo dữ liệu từ raw snapshot đã khôi phục **toàn bộ** metrics về đúng baseline, dataset repaired trùng hash với baseline và chạy lặp cho cùng kết quả (idempotent).
+Khi tiêm 6 loại lỗi, **`drop_latest_records` ảnh hưởng mạnh nhất**: 5 bài mới nhất biến mất làm hit rate giảm còn 0.500 — agent vẫn trả lời tự tin nhưng từ bài báo khác (Silent Failure). `blank_summary` và `stale_date` làm sai câu trả lời dù retrieval đúng. Quality Gate phát hiện 6/11 expectation FAIL, trong đó check completeness theo lineage bắt được việc mất bài (19 `paper_id` duy nhất < ngưỡng 22). Freshness chuyển STALE (50% dòng quá hạn). 7 vi phạm này **tự động** kích hoạt self-healing (bonus B2): chiến lược `rebuild_from_raw_records` qua lại cùng gate và được promote. Repair khôi phục **toàn bộ** metrics về đúng baseline, dataset repaired trùng hash với baseline và chạy lặp cho cùng kết quả (idempotent).
 
 Giới hạn chính: API key Gemini hết quota (429) nên bộ kết quả chính thức được chạy với `LLM_PROVIDER=mock`; LLM judge dùng heuristic fallback cho cả 10/10 câu ở mọi trạng thái (được ghi rõ bằng `judge_fallback_count`).
 
@@ -37,7 +37,8 @@ Crossref API (hoặc snapshot data/raw/crossref_response.json)
     -> MiniLM embedding + Chroma papers-baseline
     -> evaluate_pipeline (test set cố định 10 câu) -> baseline_metrics.json, phase1_report.md
     -> corrupt_clean_dataframe (6 kịch bản, seed 42) -> papers-corrupted -> corrupted_metrics.json
-    -> repair_from_raw (×2, so hash) -> papers-repaired -> repaired_metrics.json
+    -> self_heal: vi phạm gate/freshness -> repair_from_raw (qua lại gate mới promote, chạy ×2 so hash)
+       -> self_healing_log.json -> papers-repaired -> repaired_metrics.json
     -> corruption_report.md (Baseline vs Corrupted vs Repaired)
 ```
 
@@ -49,8 +50,8 @@ Crossref API (hoặc snapshot data/raw/crossref_response.json)
 | Cleaning          | 24 `PaperRecord` | Normalize text/list, `age_days`, dedupe `paper_id`, `text_for_embedding` 5 phần | `data/clean/papers_clean.*` | Nguyễn Vũ Anh |
 | Embedding/index   | Clean dataframe | all-MiniLM-L6-v2, cosine, 3 collection tách biệt | `data/chroma/`, `data/embeddings/*.json` | Nguyễn Vũ Anh |
 | Evaluation        | Clean dataframe | 10 câu / 4 loại, hit rate, token F1, judge | `data/eval/test_set.json`, `data/results/*` | Nguyễn Vũ Anh, Trương Việt Anh |
-| Observability     | Dataframe mỗi trạng thái | GX 1.x 10 expectations, Freshness SLA 25% | `data/quality/*.json` | Trương Việt Anh |
-| Corruption/repair | Clean dataframe, raw records | 6 kịch bản lỗi; repair = rebuild từ raw | `corruption_log.json`, `papers_clean_{corrupted,repaired}.*` | Vũ Việt Hoàng |
+| Observability     | Dataframe mỗi trạng thái | GX 1.x 11 expectations (gồm completeness theo lineage), Freshness SLA 25% | `data/quality/*.json` | Trương Việt Anh |
+| Corruption/repair | Clean dataframe, raw records | 6 kịch bản lỗi; self-healing tự kích hoạt repair = rebuild từ raw | `corruption_log.json`, `self_healing_log.json`, `papers_clean_{corrupted,repaired}.*` | Vũ Việt Hoàng |
 | Orchestration     | Tất cả module | Thứ tự chạy, chặn index khi gate FAIL, báo cáo | `data/reports/*.md` | Vũ Việt Hoàng |
 
 ## 4. Cách tái hiện kết quả
@@ -79,14 +80,16 @@ uv sync
 $env:LLM_PROVIDER = "mock"   # bỏ dòng này để dùng provider trong .env
 uv run python script/run_phase1.py
 uv run python script/run_corruption_flow.py
+uv run pytest -q              # 59 test
 ```
 
 ### Kết quả tái hiện
 
 | Lệnh             | Trạng thái | Thời điểm chạy gần nhất | Bằng chứng |
 | ----------------- | ---------- | ----------------------------- | ------------------------------------ |
-| Baseline pipeline | Thành công (exit 0, ~30s) | 2026-09-25 08:43 UTC | `data/reports/phase1_report.md`, `data/results/baseline_metrics.json` |
-| Corruption flow   | Thành công (exit 0, ~27s) | 2026-09-25 08:44 UTC | `data/reports/corruption_report.md`, `data/results/{corrupted,repaired}_metrics.json` |
+| Baseline pipeline | Thành công (exit 0, ~20s) | 2026-09-25 10:14 UTC | `data/reports/phase1_report.md`, `data/results/baseline_metrics.json` |
+| Corruption flow   | Thành công (exit 0, ~21s) | 2026-09-25 10:15 UTC | `data/reports/corruption_report.md`, `data/results/{corrupted,repaired}_metrics.json`, `data/results/self_healing_log.json` |
+| Test suite        | 59 passed | 2026-09-25 | `uv run pytest -q` |
 
 ## 5. Ingestion, cleaning và data contract
 
@@ -169,6 +172,7 @@ Test set chọn 5 bài mới nhất + 5 bài rải đều phần còn lại. Tes
 | Check        | Quality dimension | Ngưỡng/kỳ vọng | Kết quả baseline      | Bằng chứng |
 | ------------ | ----------------- | ------------------ | ----------------------- | ------------ |
 | `ExpectTableRowCountToBeBetween` | Completeness | 5–5000 | PASS (24) | `baseline_quality_report.json` |
+| `ExpectColumnUniqueValueCountToBeBetween(paper_id)` | Completeness (so với lineage) | ≥ 90% số raw records (≥ 22/24) | PASS (24) | 〃 |
 | `ExpectColumnValuesToNotBeNull` ×4 | Completeness | paper_id, title, summary, text_for_embedding | PASS | 〃 |
 | `ExpectColumnValuesToBeUnique(paper_id)` | Uniqueness | 0 trùng | PASS | 〃 |
 | `ExpectColumnValueLengthsToBeBetween(summary)` | Validity | ≥ 30 ký tự | PASS | 〃 |
@@ -190,7 +194,7 @@ Test set chọn 5 bài mới nhất + 5 bài rải đều phần còn lại. Tes
 
 | Corruption         | Cách tạo | Record bị tác động | Quality signal kỳ vọng | Tác động thực tế | Cách repair   |
 | ------------------ | ---------- | ---------------------: | ------------------------ | --------------------- | -------------- |
-| `drop_latest_records` | Bỏ 20% bài mới nhất | 5 | Freshness: latest_published lùi | latest 2026-07-22 → 2026-06-11; eval_001–005 retrieval miss | Rebuild từ raw |
+| `drop_latest_records` | Bỏ 20% bài mới nhất | 5 | Completeness FAIL (unique `paper_id` 19 < 22); latest_published lùi | latest 2026-07-22 → 2026-06-11; eval_001–005 retrieval miss | Rebuild từ raw |
 | `blank_summary` | `summary = ""` | 3 | Summary length FAIL | 4 dòng fail (tính cả bản trùng); eval_007 trả lời rỗng (F1 0) | Rebuild từ raw |
 | `inject_noise` | Chèn 4 token rác | 3 | Regex FAIL | 5 dòng fail; noise lọt vào câu trả lời eval_001 | Rebuild từ raw |
 | `truncate_title` | Cắt còn 6 ký tự | 3 | Title length FAIL | 3 dòng fail (không trúng bài trong test set) | Rebuild từ raw |
@@ -203,7 +207,7 @@ Corruption log:
 - Trạng thái: Có
 - Nhận xét: Log ghi đủ 6 kịch bản kèm tham số, số dòng và `paper_id` bị tác động, seed 42.
 
-Repair không sửa dataframe hỏng mà gọi `repair_from_raw()`: đọc lại `data/raw/crossref_records.json` (bất biến) và chạy lại `build_clean_dataframe` deterministic. Flow repair 2 lần và so SHA-256 nội dung. Kết quả `deterministic=True` và `identical_to_baseline=True`, chứng minh dữ liệu được phục hồi từ nguồn đáng tin cậy chứ không chỉ che lỗi.
+Repair được kích hoạt tự động: `self_heal` gom 7 vi phạm (6 expectation + freshness) và thử lần lượt `rebuild_from_raw_records`, sau đó `reparse_raw_api_response` nếu cách đầu thất bại. Ứng viên chỉ được promote khi qua lại cùng Quality Gate và Freshness SLA; nếu mọi chiến lược thất bại thì dataset bị giữ lại (quarantine) và pipeline dừng. Lần chạy này chiến lược đầu tiên đã thành công (`data/results/self_healing_log.json`). Repair không sửa dataframe hỏng mà gọi `repair_from_raw()`: đọc lại `data/raw/crossref_records.json` (bất biến) và chạy lại `build_clean_dataframe` deterministic. Flow repair 2 lần và so SHA-256 nội dung. Kết quả `deterministic=True` và `identical_to_baseline=True`, chứng minh dữ liệu được phục hồi từ nguồn đáng tin cậy chứ không chỉ che lỗi.
 
 ## 10. So sánh baseline, corrupted và repaired
 
@@ -213,41 +217,44 @@ Repair không sửa dataframe hỏng mà gọi `repair_from_raw()`: đọc lại
 | `mean_token_f1`        | 1.000 | 0.569 | 1.000 | −0.431 | 100% | Summary rỗng / ngày lệch → F1 = 0 |
 | `judge_accuracy`       | 1.000 | 0.600 | 1.000 | −0.400 | 100% | Heuristic judge |
 | `mean_judge_score`     | 5.000 | 3.200 | 5.000 | −1.800 | 100% | |
-| Quality checks pass/fail | PASS 10/10 | FAIL 5/10 | PASS 10/10 | −5 expectation | 100% | |
+| Quality checks pass/fail | PASS 11/11 | FAIL (5/11 pass) | PASS 11/11 | −6 expectation | 100% | |
 | Freshness status         | Fresh (4.2%) | Stale (50%) | Fresh (4.2%) | +45.8 điểm % stale | 100% | |
 
 Kết luận nhân quả:
 
-1. `drop_latest_records` loại 5 bài mới nhất → freshness `latest_published` lùi từ 2026-07-22 về 2026-06-11 → 5/10 câu hỏi mất ground-truth, hit rate 1.0 → 0.5. Agent **không báo lỗi** mà trả lời từ bài khác (Silent Failure).
+1. `drop_latest_records` loại 5 bài mới nhất → check completeness FAIL (19 < 22 `paper_id`), `latest_published` lùi từ 2026-07-22 về 2026-06-11 → 5/10 câu hỏi mất ground-truth, hit rate 1.0 → 0.5. Agent **không báo lỗi** mà trả lời từ bài khác (Silent Failure).
 2. `blank_summary` + `stale_date` trên bài eval_007/eval_009 → GX `summary` length và `age_days` FAIL → dù retrieval vẫn trúng, token F1 của 2 câu này = 0.
-3. Repair từ raw → Quality Gate 10/10 PASS, fresh → toàn bộ 4 metric về đúng baseline.
+3. Self-healing tự kích hoạt repair từ raw → Quality Gate 11/11 PASS, fresh → toàn bộ 4 metric về đúng baseline.
 
-Quan sát ngoài kỳ vọng: eval_002 (authors) retrieval **miss** nhưng token F1 = 1.0, vì bài được lấy nhầm có cùng tác giả. Điều này cho thấy token F1 có thể che giấu lỗi retrieval, nên cần đọc song song hit rate.
+Quan sát ngoài kỳ vọng: eval_002 (authors) và eval_004 (categories) retrieval **miss** nhưng token F1 = 1.0, vì bài được lấy nhầm tình cờ có cùng tác giả/category. Điều này cho thấy token F1 có thể che giấu lỗi retrieval, nên cần đọc song song hit rate.
 
 ## 11. Vấn đề tích hợp quan trọng
 
 - **Triệu chứng:** `run_phase1.py` treo hơn 15 phút ở bước evaluate, không có output.
 - **Nguyên nhân:** `build_llm` tạo `ChatGoogleGenerativeAI` không có timeout. API Gemini trả 504/timeout và cuối cùng 429 RESOURCE_EXHAUSTED (hết quota), nên client retry kéo dài.
-- **Cách xử lý:** Thêm `LLM_TIMEOUT` (60s) và `LLM_MAX_RETRIES` (2) vào `Settings`, truyền vào mọi client LLM. Thêm `judge_fallback_count` để báo cáo minh bạch số câu chấm bằng heuristic. Chạy bộ kết quả chính thức với `LLM_PROVIDER=mock` để 3 trạng thái so sánh công bằng.
-- **Cách xác minh:** Hai pipeline chạy lần lượt ~30s và ~27s, exit 0. `judge_fallback_count = 10` ở cả 3 trạng thái.
+- **Cách xử lý:** Thêm `LLM_TIMEOUT` (60s) và `LLM_MAX_RETRIES` (2) vào `Settings`, truyền vào mọi client LLM. Judge dừng gọi provider ngay sau lần lỗi đầu và ghi lý do vào `judge_error`. Thêm `judge_fallback_count` để báo cáo minh bạch số câu chấm bằng heuristic. Chạy bộ kết quả chính thức với `LLM_PROVIDER=mock` để 3 trạng thái so sánh công bằng.
+- **Cách xác minh:** Hai pipeline chạy lần lượt ~20s và ~21s, exit 0. `judge_fallback_count = 10` ở cả 3 trạng thái.
+
+Vấn đề tích hợp thứ hai là merge Git. PR #1 được merge kiểu squash, nên khi merge tiếp 3 nhánh `viethoang`, `vuanh`, `vietanh`, Git báo conflict ở 23 file (artifact `data/`, `chroma.sqlite3` nhị phân, 7 file source). Nhóm giữ bản mới nhất cho artifact, gộp cả hai phía ở `quality.py` (`expected_papers` + `missing_columns`), tách báo cáo từng người ra file `<MSSV>_<Tên>.md`, rồi chạy lại cả hai pipeline và 59 test trên `main` để xác nhận số liệu trong báo cáo này.
 
 ## 12. Giới hạn và hướng cải thiện
 
 | Giới hạn hiện tại | Ảnh hưởng   | Hướng cải thiện có thể kiểm chứng |
 | --------------------- | -------------- | ----------------------------------------- |
-| Judge dùng heuristic (quota Gemini hết) | `judge_accuracy` bám theo token F1, chưa phải đánh giá ngữ nghĩa | Chạy lại với key còn quota, so sánh `judge_fallback_count = 0` |
+| Judge dùng heuristic (quota Gemini hết) | `judge_accuracy` bám theo token F1, chưa phải đánh giá ngữ nghĩa | Chạy lại với key còn quota (và `QA_MODE=llm`), so sánh `judge_fallback_count = 0` |
+| Console in emoji 🚨 | Khi chuyển output vào file trên Windows (cp1252) gặp `UnicodeEncodeError` | Đặt `PYTHONIOENCODING=utf-8` hoặc bỏ emoji khỏi `_print_alert` |
 | QA trích xuất theo luật từ top-1 | Khi bài đúng bị drop, agent trả lời bài khác thay vì "không biết" | Thêm ngưỡng score / kiểm tra tiêu đề để trả "I don't know" |
 | Snapshot tĩnh | Sau ~2026-11-28 baseline sẽ vi phạm Freshness SLA | Chạy `REFRESH_SOURCE=1` định kỳ |
 | `truncate_title` không trúng bài trong test set | Không đo được tác động lên lookup theo tiêu đề | Mở rộng test set hoặc nhắm corruption theo từng loại câu hỏi |
 
 ## 13. Checklist trước khi nộp
 
-- [x] Thông tin nhóm chính xác (còn điền MSSV và link repository).
+- [x] Thông tin nhóm chính xác.
 - [x] Phân công khớp với module, artifact và kết quả thực tế.
 - [x] Lệnh tái hiện đã được chạy lại trên phiên bản dùng để nộp.
 - [x] Baseline, corrupted và repaired dùng cùng evaluation set.
 - [x] Bảng metrics khớp với các file trong `data/results/`.
 - [x] Quality/freshness conclusions khớp với `data/quality/`.
 - [x] Các đường dẫn báo cáo và artifact truy cập được.
-- [ ] Mỗi thành viên đã hoàn thành báo cáo vai trò riêng (bản nháp đã có, từng người cần rà soát).
+- [x] Mỗi thành viên đã hoàn thành báo cáo vai trò riêng (`report/2A202602398_VuVietHoang.md`, `report/2A202602502_NguyenVuAnh.md`, `report/2A202602444_TruongVietAnh.md`).
 - [x] Không có `.env`, API key, token hoặc secret trong source, report, log hay ảnh.
